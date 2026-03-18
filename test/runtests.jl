@@ -1,6 +1,5 @@
-using EnzymeImplicitAD
-using LinearAlgebra, Test
-using EnzymeImplicitAD: inplace_∂r∂y!
+using EnzymeImplicitAD, LinearAlgebra, Test, Enzyme
+using EnzymeImplicitAD: inplace_∂g∂x_v!, inplace_∂g∂y!
 
 function test_problem(n::Int)
     A = randn(n, n)
@@ -20,16 +19,22 @@ function test_problem(n::Int)
     (; f!, g!, A, B, F)
 end
 
-n = 3
-(; f!, g!, A, B, F) = test_problem(n)
-J = similar(A)
-x = randn(n)
-y = randn(n)
-dy = similar(y)
-r = similar(x)
-dr = similar(x)
-inplace_∂r∂y!(J, g!, r, dr, x, y, dy)
-@test J ≈ B
+@testset "∂g∂y and ∂g∂x_v extraction" begin
+    n = 3
+    (; f!, g!, A, B, F) = test_problem(n)
+    J = similar(A)
+    x = randn(n)
+    y = randn(n)
+    dy = similar(y)
+    r = similar(x)
+    dr = similar(x)
+    inplace_∂g∂y!(J, g!, r, dr, x, y, dy)
+    @test J ≈ B
+    Jv = similar(r)
+    v = randn(n)
+    inplace_∂g∂x_v!(Forward, Jv, g!, r, x, v, y)
+    @test Jv ≈ A * v
+end
 
 # write tests here
 
