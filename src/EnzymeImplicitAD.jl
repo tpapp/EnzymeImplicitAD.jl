@@ -15,18 +15,29 @@ using Enzyme: Forward, Reverse, autodiff, make_zero!
 
 """
 An implicit function ``y = f(x)`` defined by ``0 = g(x, y)``, with the call signature
-`f!(y, x)` and `g!(r, x, y)` where ``r`` is approximately zero for the solution.
+`f!(y, x)` and `g!(r, x, y)` where `r` is approximately zero for the solution (`f!` is
+not checked for this).
 """
 struct SquareImplicitFunction{F,G}
     f!::F
     g!::G
 end
 
+"""
+$(SIGNATURES)
+
+In place form for the implicit solution, calculating the first argument from the second.
+"""
 function (ℐ::SquareImplicitFunction)(y, x)
     ℐ.f!(y, x)
     nothing
 end
 
+"""
+$(SIGNATURES)
+
+Functional form of the implicit solution, for convenience. Allocates a new vector.
+"""
 function (ℐ::SquareImplicitFunction)(x)
     y = similar(x)
     ℐ(y, x)
@@ -35,6 +46,10 @@ end
 
 """
 $(SIGNATURES)
+
+Calculate the Jacobian `J = ∂g/∂y`, at `x` and `y`.
+
+The following are buffers: `r`, `dr`, `x`, `y`, `dy`, and will be overwritten.
 """
 function inplace_∂g∂y!(J, g!, r, dr, x, y, dy::AbstractVector{T}) where T
     make_zero!(dy)
@@ -49,6 +64,10 @@ end
 
 """
 $(SIGNATURES)
+
+Calculate `∂g/∂x ⋅ v` and put the result in the first argument, using forward mode in Enzyme.
+
+`r` will be overwritten.
 """
 function inplace_∂g∂x_v!(Jv, v, g!, r, x, y)
     make_zero!(Jv)              # FIXME: do I need this?
@@ -58,7 +77,9 @@ end
 """
 $(SIGNATURES)
 
-NOTE: `v` is overwritten.
+Calculate `v ⋅ ∂g/∂x` and put the result in the first argument, using reverse mode in Enzyme.
+
+NOTE: `r` and `v` are overwritten.
 """
 function inplace_v_∂g∂x!(vJ, v, g!, r, x, y)
     make_zero!(vJ)              # FIXME: do I need this?
