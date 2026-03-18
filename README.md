@@ -9,3 +9,18 @@
 -->
 <!-- Aqua badge, see test/runtests.jl -->
 <!-- [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl) -->
+
+This package implements forward and reverse mode AD via Enzyme.jl for the implicit function
+
+```math
+y = f(x) \text{  defined by  } g(x, y) = 0
+```
+
+In code, these are implemented as `f!(y, x)` and `g!(r, x, y)` and should be provided by the user, in a wrapper struct.
+
+It has the following purposes:
+
+1. I want to understand automatic differentiation better.
+2. I want to understand how Enzyme works.
+3. Serve as an MWE for asking questions.
+4. Eventually, contribute to [ImplicitDifferentiation.jl](https://github.com/JuliaDecisionFocusedLearning/ImplicitDifferentiation.jl), once I figure out how the details work.
