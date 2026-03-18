@@ -1,0 +1,16 @@
+name = "EnzymeImplicitAD"
+uuid = "e5816cd5-ad56-4b36-a2ea-174ddf69c823"
+version = "0.1.0"
+authors = ["Tamás K. Papp <tkpapp@gmail.com>"]
+
+[workspace]
+projects = ["test"]
+
+[deps]
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+
+[compat]
+DocStringExtensions = "0.9"
+Enzyme = "0.13"
+julia = "1.12"
