@@ -1,6 +1,10 @@
 using EnzymeImplicitAD, LinearAlgebra, Test, Enzyme
 using EnzymeImplicitAD: inplace_∂g∂x_v!, inplace_∂g∂y!, inplace_v_∂g∂x!
 
+"""
+Construct a linear test problem of dimension `n`. Return the underlying matrices so that
+they can be used for analytically comparing results.
+"""
 function test_problem(n::Int)
     A = randn(n, n)
     B = randn(n, n)
