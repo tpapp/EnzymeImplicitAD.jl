@@ -6,11 +6,12 @@ module EnzymeImplicitAD
 export SquareImplicitFunction
 
 using DocStringExtensions: SIGNATURES
-using LinearAlgebra: ldiv!, lu!
+using LinearAlgebra: ldiv!, lu!, rdiv!
 
 import Enzyme.EnzymeRules: augmented_primal, forward, reverse
-using Enzyme.EnzymeRules: Const, Duplicated, FwdConfig
-using Enzyme: Forward, autodiff, make_zero!
+using Enzyme.EnzymeRules: Const, Duplicated, FwdConfig, RevConfigWidth, overwritten,
+    AugmentedReturn
+using Enzyme: Forward, Reverse, autodiff, make_zero!
 
 """
 An implicit function ``y = f(x)`` defined by ``0 = g(x, y)``, with the call signature
@@ -49,23 +50,32 @@ end
 """
 $(SIGNATURES)
 """
-function inplace_∂g∂x_v!(Jv, g!, r, x, v, y)
+function inplace_∂g∂x_v!(Jv, v, g!, r, x, y)
     make_zero!(Jv)              # FIXME: do I need this?
     autodiff(Forward, Const(g!), Duplicated(r, Jv), Duplicated(x, v), Const(y))
 end
 
-function forward(config::FwdConfig, ℐ::Const{<:SquareImplicitFunction}, RT::Type,
+"""
+$(SIGNATURES)
+
+NOTE: `v` is overwritten.
+"""
+function inplace_v_∂g∂x!(vJ, v, g!, r, x, y)
+    make_zero!(vJ)              # FIXME: do I need this?
+    autodiff(Reverse, Const(g!), Duplicated(r, v), Duplicated(x, vJ), Const(y))
+end
+
+function forward(config::FwdConfig, Dℐ::Const{<:SquareImplicitFunction}, ::Type{Const{Nothing}},
                  Dy::Union{Const,Duplicated}, Dx::Union{Const,Duplicated})
-    (; f!, g!) = ℐ.val
+    (; f!, g!) = Dℐ.val
     println("Using custom FORWARD rule")
-    @show RT
     y = Dy.val
     x = Dx.val
     f!(y, x)
     if Dx isa Const && Dy isa Const
         return nothing
     elseif Dy isa Const
-        error("how can this happen")
+        error("how can this happen?")
     end
     J = similar(y, axes(y, 1), axes(x, 1))
     dx = Dx.dval
@@ -76,10 +86,45 @@ function forward(config::FwdConfig, ℐ::Const{<:SquareImplicitFunction}, RT::Ty
     #     ∂g/∂x + ∂g/∂y ∂y/∂x = 0
     #     ∂y/∂x ⋅ v = - ∂g/∂y \ ∂g/∂x ⋅ v
     inplace_∂g∂y!(J, g!, r, dr, x, y, dy) # dy is used as a buffer
-    inplace_∂g∂x_v!(dy, g!, r, x, dx, y)  # now dy = ∂g/∂x ⋅ dx
+    inplace_∂g∂x_v!(dy, dx, g!, r, x, y)  # now dy = ∂g/∂x ⋅ dx
     ldiv!(lu!(J), dy)
     dy .*= -1
     nothing
+end
+
+function augmented_primal(config::RevConfigWidth{1}, Dℐ::Const{<:SquareImplicitFunction}, RT,
+                          Dy::Duplicated, Dx::Duplicated)
+    (; f!) = Dℐ.val
+    println("Using custom AUGMENTED PRIMAL")
+    @show RT
+    x = Dx.val
+    y = Dy.val
+    f!(y, x)
+    tape = (; y = overwritten(config)[2] ? copy(y) : nothing,
+            x = overwritten(config)[3] ? copy(x) : nothing,)
+    AugmentedReturn(nothing, nothing, tape) # FIXME do we need a shadow?
+end
+
+function reverse(config::RevConfigWidth{1}, Dℐ::Const{<:SquareImplicitFunction}, ret, tape,
+                 Dy::Duplicated, Dx::Duplicated)
+    (; g!) = Dℐ.val
+    println("Using custom REVERSE rule")
+    @show ret
+    x = something(tape.x, Dx.val)
+    y = something(tape.y, Dy.val)
+    dy = Dy.dval
+    dx = Dx.dval
+    J = similar(y, axes(y, 1), axes(x, 1))
+    r = similar(y)
+    dr = similar(r)
+    buffer = similar(dy)
+    # dy ⋅ ∂y/∂x = - (dy / ∂g/∂y) ⋅ ∂g/∂x
+    inplace_∂g∂y!(J, g!, r, dr, x, y, buffer)
+    buffer .= dy
+    rdiv!(buffer', lu!(J))
+    inplace_v_∂g∂x!(r, buffer, g!, r, x, y) # reuse r
+    dx .+= r                                # accumulate into shadow
+    nothing, nothing
 end
 
 end # module
