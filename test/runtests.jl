@@ -15,13 +15,13 @@ function test_problem(n::Int)
         ldiv!(luB, y)
         nothing
     end
-    F = SquareImplicitFunction(f!, g!)
-    (; f!, g!, A, B, F)
+    ℐ = SquareImplicitFunction(f!, g!)
+    (; f!, g!, A, B, ℐ)
 end
 
 @testset "∂g∂y and ∂g∂x_v extraction" begin
     n = 3
-    (; f!, g!, A, B, F) = test_problem(n)
+    (; f!, g!, A, B) = test_problem(n)
     J = similar(A)
     x = randn(n)
     y = randn(n)
@@ -32,8 +32,19 @@ end
     @test J ≈ B
     Jv = similar(r)
     v = randn(n)
-    inplace_∂g∂x_v!(Forward, Jv, g!, r, x, v, y)
+    inplace_∂g∂x_v!(Jv, g!, r, x, v, y)
     @test Jv ≈ A * v
+end
+
+@testset "forward mode consistency test" begin
+    n = 3
+    (; A, B, ℐ) = test_problem(n)
+    x = randn(n)
+    dx = randn(n)
+    y = zeros(n)
+    dy = zeros(n)
+    autodiff(Forward, Const(ℐ), Duplicated(y, dy), Duplicated(x, dx))
+    @test dy ≈ -(B \ (A * dx))
 end
 
 # write tests here

@@ -6,6 +6,7 @@ module EnzymeImplicitAD
 export SquareImplicitFunction
 
 using DocStringExtensions: SIGNATURES
+using LinearAlgebra: ldiv!, lu!
 
 import Enzyme.EnzymeRules: augmented_primal, forward, reverse
 using Enzyme.EnzymeRules: Const, Duplicated, FwdConfig
@@ -25,6 +26,12 @@ function (ℐ::SquareImplicitFunction)(y, x)
     nothing
 end
 
+function (ℐ::SquareImplicitFunction)(x)
+    y = similar(x)
+    ℐ(y, x)
+    y
+end
+
 """
 $(SIGNATURES)
 """
@@ -42,14 +49,14 @@ end
 """
 $(SIGNATURES)
 """
-function inplace_∂g∂x_v!(mode, Jv, g!, r, x, v, y)
+function inplace_∂g∂x_v!(Jv, g!, r, x, v, y)
     make_zero!(Jv)              # FIXME: do I need this?
-    autodiff(mode, Const(g!), Duplicated(r, Jv), Duplicated(x, v), Const(y))
+    autodiff(Forward, Const(g!), Duplicated(r, Jv), Duplicated(x, v), Const(y))
 end
 
 function forward(config::FwdConfig, ℐ::Const{<:SquareImplicitFunction}, RT::Type,
                  Dy::Union{Const,Duplicated}, Dx::Union{Const,Duplicated})
-    (; f!, g!) = ℐ
+    (; f!, g!) = ℐ.val
     println("Using custom FORWARD rule")
     @show RT
     y = Dy.val
@@ -60,17 +67,19 @@ function forward(config::FwdConfig, ℐ::Const{<:SquareImplicitFunction}, RT::Ty
     elseif Dy isa Const
         error("how can this happen")
     end
-    make_zero!(y.dval)
     J = similar(y, axes(y, 1), axes(x, 1))
     dx = Dx.dval
     dy = Dy.dval
-    r = similar(y)
+    r = similar(y)              # FIXME do we need this? or could we use ...NoNeed?
     dr = similar(dy)
     # math:
     #     ∂g/∂x + ∂g/∂y ∂y/∂x = 0
     #     ∂y/∂x ⋅ v = - ∂g/∂y \ ∂g/∂x ⋅ v
-    inplace_∂g∂y!(Forward, J, g!, r, dr, x, y, dy)
-
+    inplace_∂g∂y!(J, g!, r, dr, x, y, dy) # dy is used as a buffer
+    inplace_∂g∂x_v!(dy, g!, r, x, dx, y)  # now dy = ∂g/∂x ⋅ dx
+    ldiv!(lu!(J), dy)
+    dy .*= -1
+    nothing
 end
 
 end # module
