@@ -1,4 +1,4 @@
-using EnzymeImplicitAD, LinearAlgebra, Test, Enzyme
+using EnzymeImplicitAD, LinearAlgebra, Test, Enzyme, EnzymeTestUtils
 using EnzymeImplicitAD: inplace_∂g∂x_v!, inplace_∂g∂y!, inplace_v_∂g∂x!
 
 """
@@ -69,7 +69,15 @@ end
     @test (B \ A)' * dy ≈  dx
 end
 
-# write tests here
+@testset "testing with EnzymeTestUtils" begin
+    n = 3
+    (; ℐ) = rand_test_problem(n)
+    x = randn(n)
+    y = similar(x)
+    @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)
+        test_forward(ℐ, Const, (y, Tx), (x, Ty))
+    end
+end
 
 ## NOTE add JET to the test environment, then uncomment
 # using JET

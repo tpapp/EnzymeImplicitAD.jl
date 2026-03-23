@@ -89,14 +89,14 @@ end
 function forward(config::FwdConfig, Dℐ::Const{<:SquareImplicitFunction}, ::Type{Const{Nothing}},
                  Dy::Union{Const,Duplicated}, Dx::Union{Const,Duplicated})
     (; f!, g!) = Dℐ.val
-    println("Using custom FORWARD rule")
     y = Dy.val
     x = Dx.val
     f!(y, x)
-    if Dx isa Const && Dy isa Const
+    if Dx isa Const || Dy isa Const
+        if Dy isa Duplicated
+            make_zero!(Dy.dval)
+        end
         return nothing
-    elseif Dy isa Const
-        error("how can this happen?")
     end
     J = similar(y, axes(y, 1), axes(x, 1))
     dx = Dx.dval
