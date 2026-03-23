@@ -2,12 +2,12 @@ using EnzymeImplicitAD, LinearAlgebra, Test, Enzyme, EnzymeTestUtils
 using EnzymeImplicitAD: inplace_∂g∂x_v!, inplace_∂g∂y!, inplace_v_∂g∂x!
 
 """
-Construct a linear test problem of dimension `n`. Return the underlying matrices so that
-they can be used for analytically comparing results.
+Construct a linear test problem ``A⋅x + B⋅y = 0``.
+
+Return the underlying matrices so that they can be used for analytically comparing
+results.
 """
-function rand_test_problem(n::Int)
-    A = randn(n, n)
-    B = randn(n, n)
+function make_test_problem(A, B)
     luB = lu(B)
     function g!(r::AbstractVector{T}, x, y) where T
         mul!(r, A, x)
@@ -22,6 +22,11 @@ function rand_test_problem(n::Int)
     ℐ = SquareImplicitFunction(f!, g!)
     (; f!, g!, A, B, ℐ)
 end
+
+"""
+`make_test_problem` with random matrices of size `n`.
+"""
+rand_test_problem(n::Int) = make_test_problem(randn(n, n), randn(n, n))
 
 @testset "∂g∂y, ∂g∂x_v, v_∂g∂x extraction" begin
     n = 3
@@ -65,8 +70,9 @@ end
     dx = zeros(n)
     y = fill(NaN, n)
     dy = randn(n)
+    expected_dx = (B \ A)' * (.-dy)
     autodiff(Reverse, Const(ℐ), Duplicated(y, dy), Duplicated(x, dx))
-    @test (B \ A)' * dy ≈  dx
+    @test expected_dx ≈  dx
 end
 
 @testset "testing with EnzymeTestUtils" begin
@@ -74,8 +80,17 @@ end
     (; ℐ) = rand_test_problem(n)
     x = randn(n)
     y = similar(x)
-    @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)
-        test_forward(ℐ, Const, (y, Tx), (x, Ty))
+    @testset "test_forward" begin
+        @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)
+            test_forward(ℐ, Const, (y, Tx), (x, Ty))
+        end
+        @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)
+            test_forward(ℐ, Const, (y, Tx), (x, Ty))
+        end
+    end
+    ℐ = make_test_problem(I(3), I(3)).ℐ
+    @testset "test_reverse" begin
+        test_reverse(ℐ, Const, (y, Duplicated), (x, Duplicated))
     end
 end
 

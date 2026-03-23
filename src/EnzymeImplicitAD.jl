@@ -113,11 +113,9 @@ function forward(config::FwdConfig, Dℐ::Const{<:SquareImplicitFunction}, ::Typ
     nothing
 end
 
-function augmented_primal(config::RevConfigWidth{1}, Dℐ::Const{<:SquareImplicitFunction}, RT,
-                          Dy::Duplicated, Dx::Duplicated)
+function augmented_primal(config::RevConfigWidth{1}, Dℐ::Const{<:SquareImplicitFunction},
+                          ::Type{<:Const}, Dy::Duplicated, Dx::Duplicated)
     (; f!) = Dℐ.val
-    println("Using custom AUGMENTED PRIMAL")
-    @show RT
     x = Dx.val
     y = Dy.val
     f!(y, x)
@@ -126,11 +124,9 @@ function augmented_primal(config::RevConfigWidth{1}, Dℐ::Const{<:SquareImplici
     AugmentedReturn(nothing, nothing, tape) # FIXME do we need a shadow?
 end
 
-function reverse(config::RevConfigWidth{1}, Dℐ::Const{<:SquareImplicitFunction}, ret, tape,
-                 Dy::Duplicated, Dx::Duplicated)
+function reverse(config::RevConfigWidth{1}, Dℐ::Const{<:SquareImplicitFunction},
+                 ::Type{Const{Nothing}}, tape, Dy::Duplicated, Dx::Duplicated)
     (; g!) = Dℐ.val
-    println("Using custom REVERSE rule")
-    @show ret
     x = something(tape.x, Dx.val)
     y = something(tape.y, Dy.val)
     dy = Dy.dval
@@ -139,12 +135,14 @@ function reverse(config::RevConfigWidth{1}, Dℐ::Const{<:SquareImplicitFunction
     r = similar(y)
     dr = similar(r)
     buffer = similar(dy)
-    # dy ⋅ ∂y/∂x = - (dy / ∂g/∂y) ⋅ ∂g/∂x
+    # math:
+    #     dy ⋅ ∂y/∂x = - (dy / ∂g/∂y) ⋅ ∂g/∂x
     inplace_∂g∂y!(J, g!, r, dr, x, y, buffer)
     buffer .= dy
     rdiv!(buffer', lu!(J))
     inplace_v_∂g∂x!(r, buffer, g!, r, x, y) # reuse r
-    dx .+= r                                # accumulate into shadow
+    dx .-= r                                # accumulate into shadow
+    make_zero!(dy)                          # zero out y's shadow
     nothing, nothing
 end
 
