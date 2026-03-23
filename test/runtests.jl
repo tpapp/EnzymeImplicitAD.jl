@@ -5,7 +5,7 @@ using EnzymeImplicitAD: inplace_∂g∂x_v!, inplace_∂g∂y!, inplace_v_∂g�
 Construct a linear test problem of dimension `n`. Return the underlying matrices so that
 they can be used for analytically comparing results.
 """
-function test_problem(n::Int)
+function rand_test_problem(n::Int)
     A = randn(n, n)
     B = randn(n, n)
     luB = lu(B)
@@ -25,7 +25,7 @@ end
 
 @testset "∂g∂y, ∂g∂x_v, v_∂g∂x extraction" begin
     n = 3
-    (; f!, g!, A, B) = test_problem(n)
+    (; f!, g!, A, B) = rand_test_problem(n)
     x = randn(n)
     y = randn(n)
     dy = similar(y)
@@ -49,7 +49,7 @@ end
 
 @testset "forward mode consistency test" begin
     n = 3
-    (; A, B, ℐ) = test_problem(n)
+    (; A, B, ℐ) = rand_test_problem(n)
     x = randn(n)
     dx = randn(n)
     y = zeros(n)
@@ -60,7 +60,7 @@ end
 
 @testset "reverse mode consistency test" begin
     n = 3
-    (; A, B, ℐ) = test_problem(n)
+    (; A, B, ℐ) = rand_test_problem(n)
     x = randn(n)
     dx = zeros(n)
     y = fill(NaN, n)
