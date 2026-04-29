@@ -1,4 +1,5 @@
 using LinearAlgebra, Test, Enzyme, EnzymeTestUtils
+using EnzymeImplicitAD
 import EnzymeImplicitAD as E
 
 ####
@@ -104,8 +105,7 @@ end
 #     JET.test_package(EnzymeImplicitAD, target_modules=(EnzymeImplicitAD,))
 # end
 
-## NOTE add Aqua to the test environment, then uncomment
-# @testset "QA with Aqua" begin
-#     import Aqua
-#     Aqua.test_all(EnzymeImplicitAD)
-# end
+@testset "QA with Aqua" begin
+    import Aqua
+    Aqua.test_all(EnzymeImplicitAD)
+end

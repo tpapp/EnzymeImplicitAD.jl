@@ -1,4 +1,5 @@
 [deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 EnzymeImplicitAD = "e5816cd5-ad56-4b36-a2ea-174ddf69c823"
 EnzymeTestUtils = "12d8515a-0907-448a-8884-5fe00fdf1c5a"
