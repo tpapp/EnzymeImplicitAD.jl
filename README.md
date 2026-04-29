@@ -8,7 +8,7 @@
 [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)](https://tpapp.github.io/EnzymeImplicitAD.jl/dev)
 -->
 <!-- Aqua badge, see test/runtests.jl -->
-<!-- [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl) -->
+[![Aqua QA](https://juliatesting.github.io/Aqua.jl/dev/assets/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
 This package implements forward and reverse mode AD via Enzyme.jl for the implicit function
 
@@ -16,7 +16,7 @@ This package implements forward and reverse mode AD via Enzyme.jl for the implic
 y = f(x) \text{  defined by  } g(x, y) = 0
 ```
 
-In code, these are implemented as `f!(y, x)` and `g!(r, x, y)` and should be provided by the user, in a wrapper struct.
+In code, these are implemented as `implicit_solve!(y, implicit_problem, x)` and `implicit_residuals!(r, implicit_probem, x, y)` and should be provided by the user.
 
 It has the following purposes:
 
