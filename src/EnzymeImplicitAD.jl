@@ -9,5 +9,6 @@ using DocStringExtensions: FUNCTIONNAME, SIGNATURES
 
 include("api.jl")
 include("enzyme_ad.jl")
+include("solvers.jl")
 
 end # module

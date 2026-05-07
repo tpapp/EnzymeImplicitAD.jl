@@ -8,18 +8,23 @@ import EnzymeImplicitAD as E
 
 """
 A linear test problem ``A⋅x + B⋅y = 0``, used for testing.
+
+The `solver::Bool` argument (`S` parameter) determines whether [`implicit_solve!`](@ref)
+is implemented.
 """
-struct MatrixProblem{TA<:AbstractMatrix,TB<:AbstractMatrix,TL}
+struct MatrixProblem{S,TA<:AbstractMatrix,TB<:AbstractMatrix,TL}
     A::TA
     B::TB
     luB::TL
+    function MatrixProblem(A::AbstractMatrix, B::AbstractMatrix; solver::Bool = true)
+        luB = lu(B)
+        new{solver,typeof(A),typeof(B),typeof(luB)}(A, B, lu(B))
+    end
 end
 
-MatrixProblem(A::AbstractMatrix, B::AbstractMatrix) = MatrixProblem(A, B, lu(B))
+MatrixProblem(n::Int; solver::Bool = true) = MatrixProblem(randn(n, n), randn(n, n); solver)
 
-MatrixProblem(n::Int) = MatrixProblem(randn(n, n), randn(n, n))
-
-function E.implicit_solve!(y::AbstractVector{T}, P::MatrixProblem, x) where T
+function E.implicit_solve!(y::AbstractVector{T}, P::MatrixProblem{true}, x) where T
     (; A, luB) = P
     mul!(y, A, x, -one(T), zero(T))
     ldiv!(luB, y)
@@ -32,6 +37,10 @@ function E.implicit_residuals!(r::AbstractVector{T}, P::MatrixProblem, x, y) whe
     mul!(r, B, y, one(T), one(T))
     nothing
 end
+
+analytical_pushforward(P::MatrixProblem, dx) = -(P.luB \ (P.A * dx))
+
+analytical_pullback(P::MatrixProblem, dy) = (P.luB \ P.A)' * (.-dy)
 
 ####
 #### internals
@@ -69,7 +78,7 @@ end
     y = zeros(n)
     dy = zeros(n)
     autodiff(Forward, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-    @test dy ≈ -(B \ (A * dx))
+    @test dy ≈ analytical_pushforward(P, dx)
 end
 
 @testset "reverse mode consistency test" begin
@@ -79,9 +88,9 @@ end
     dx = zeros(n)
     y = fill(NaN, n)
     dy = randn(n)
-    expected_dx = (B \ A)' * (.-dy)
+    expected_dx = analytical_pullback(P, dy)
     autodiff(Reverse, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-    @test expected_dx ≈  dx
+    @test expected_dx ≈ dx
 end
 
 @testset "testing with EnzymeTestUtils" begin
@@ -98,6 +107,34 @@ end
         test_reverse(E.implicit_solve!, Const, (y, Duplicated), P, (x, Duplicated))
     end
 end
+
+@testset "implicit solver" begin
+    n = 4
+    P0 = MatrixProblem(n; solver = false)
+    P = E.square_implicit_problem(P0)
+    x = randn(n)
+    y = fill(NaN, n)
+    E.implicit_solve!(y, P, x)
+    r = fill(NaN, n)
+    # check solution via rootfinder
+    E.implicit_residuals!(r, P, x, y)
+
+
+    # dx = similar(x)
+    # dy = similar(y)
+    # autodiff(Reverse, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
+
+    @test maximum(abs, r) ≤ 1e-10
+    @testset "test_forward" begin
+        @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)
+            test_forward(E.implicit_solve!, Const, (y, Ty), P, (x, Tx))
+        end
+    end
+    @testset "test_reverse" begin
+        test_reverse(E.implicit_solve!, Const, (y, Duplicated), P, (x, Duplicated))
+    end
+end
+
 
 ## NOTE add JET to the test environment, then uncomment
 # using JET
