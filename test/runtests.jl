@@ -52,21 +52,18 @@ analytical_pullback(P::MatrixProblem, dy) = (P.luB \ P.A)' * (.-dy)
     x = randn(n)
     y = randn(n)
     dy = similar(y)
-    r = similar(x)
-    dr = similar(x)
 
-    J = similar(A)
-    E.inplace_∂g∂y!(J, P, r, dr, x, y, dy)
+    J = E._calculate_∂g∂y(P, x, y)
     @test J ≈ B
 
-    Jv = similar(r)
+    Jv = similar(y)
     v = randn(n)
-    E.inplace_∂g∂x_v!(Jv, v, P, r, x, y)
+    E._inplace_∂g∂x_v!(Jv, v, P, x, y)
     @test Jv ≈ A * v
 
-    vJ = similar(r)
+    vJ = similar(y)
     v = randn(n)
-    E.inplace_v_∂g∂x!(vJ, copy(v), P, r, x, y)
+    E._inplace_v_∂g∂x!(vJ, copy(v), P, x, y)
     @test vJ ≈ A' * v
 end
 
@@ -118,13 +115,8 @@ end
     r = fill(NaN, n)
     # check solution via rootfinder
     E.implicit_residuals!(r, P, x, y)
-
-
-    # dx = similar(x)
-    # dy = similar(y)
-    # autodiff(Reverse, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-
     @test maximum(abs, r) ≤ 1e-10
+
     @testset "test_forward" begin
         @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)
             test_forward(E.implicit_solve!, Const, (y, Ty), P, (x, Tx))
@@ -134,7 +126,6 @@ end
         test_reverse(E.implicit_solve!, Const, (y, Duplicated), P, (x, Duplicated))
     end
 end
-
 
 ## NOTE add JET to the test environment, then uncomment
 # using JET
