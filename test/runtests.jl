@@ -24,6 +24,11 @@ end
 
 MatrixProblem(n::Int; solver::Bool = true) = MatrixProblem(randn(n, n), randn(n, n); solver)
 
+function E.get_dimensions(P::MatrixProblem)
+    n = size(P.A, 1)
+    (; n_x = n, n_y = n, n_r = n)
+end
+
 function E.implicit_solve!(y::AbstractVector{T}, P::MatrixProblem{true}, x) where T
     (; A, luB) = P
     mul!(y, A, x, -one(T), zero(T))
@@ -52,18 +57,21 @@ analytical_pullback(P::MatrixProblem, dy) = (P.luB \ P.A)' * (.-dy)
     x = randn(n)
     y = randn(n)
     dy = similar(y)
+    b1 = similar(y)
+    b2 = similar(y)
+    b3 = similar(y)
 
-    J = E._calculate_∂g∂y(P, x, y)
+    J = E._calculate_∂g∂y(P, x, y, b1, b2, b3)
     @test J ≈ B
 
     Jv = similar(y)
     v = randn(n)
-    E._inplace_∂g∂x_v!(Jv, v, P, x, y)
+    E._inplace_∂g∂x_v!(Jv, v, P, x, y, b1)
     @test Jv ≈ A * v
 
     vJ = similar(y)
     v = randn(n)
-    E._inplace_v_∂g∂x!(vJ, copy(v), P, x, y)
+    E._inplace_v_∂g∂x!(vJ, copy(v), P, x, y, b1)
     @test vJ ≈ A' * v
 end
 

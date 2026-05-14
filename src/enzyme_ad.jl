@@ -21,7 +21,7 @@ function forward(_config::FwdConfig, ::Const{typeof(implicit_solve!)}, ::Type{Co
         return nothing
     end
     ∂y∂x = calculate_∂y∂x(implicit_problem, x, y)
-    mul!(Dy.dval, ∂y∂x, Dx.dval)
+    calculate_pushforward!(Dy.dval, implicit_problem, x, y, ∂y∂x, Dx.dval)
     nothing
 end
 
@@ -43,10 +43,7 @@ function reverse(_config::RevConfigWidth{1}, ::Const{typeof(implicit_solve!)},
     x = something(tape.x, Dx.val)
     y = something(tape.y, Dy.val)
     ∂y∂x = calculate_∂y∂x(implicit_problem, x, y)
-    dy = Dy.dval
-    dx = Dx.dval
-    O = one(eltype(dx))
-    mul!(dx, dy, ∂y∂x, O, O)
-    make_zero!(dy)                          # zero out y's shadow
+    accumulate_pullback!(Dx.dval, implicit_problem, x, y, ∂y∂x, Dy.dval)
+    make_zero!(Dy.dval)         # zero out y's shadow
     nothing, nothing, nothing
 end
