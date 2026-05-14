@@ -2,6 +2,11 @@
 ##### utilities
 #####
 
+####
+#### Primitives for calculating Jacobians and Jacobian-vector products using Enzyme.
+#### Buffers need to be provided explicitly, higher-level API manages them.
+####
+
 const BUFFER_DOCS = "`buffer_…` variables are for temporary storage, may be overwritten, their initial contents can be arbitrary. It is assumed that they are not shared between tasks."
 
 """
