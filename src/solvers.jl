@@ -10,21 +10,19 @@ using Enzyme: Duplicated
 import OhMyThreads
 using TrustRegionMethods
 
-@concrete terse struct SquareImplicitProblem
-    inner_problem
-    solver_AD_backend
-    buffers
-end
-
-@doc """
+"""
 Container for square implicit problems defined by `f(x, y(x)) = 0` where `x` and `y`
 have the same dimension.
 
 Solved by iterative methods, needs an [`initial guess`](@ref).
 
-This structure is not part
+This structure is not part of the API.
 """
-SquareImplicitProblem
+@concrete terse struct SquareImplicitProblem
+    inner_problem
+    solver_AD_backend
+    buffers
+end
 
 """
 $(SIGNATURES)
@@ -59,9 +57,12 @@ Provide an initial guess for the inner problem given `x`.
 """
 initial_guess(inner_problem, x) = zero(x)
 
-struct _SolverWrap{P,X}
-    problem::P
-    x::X
+"""
+A callable for residuals evaluated at `x`.
+"""
+@concrete struct _SolverWrap
+    problem
+    x
 end
 
 function (w::_SolverWrap)(y)
