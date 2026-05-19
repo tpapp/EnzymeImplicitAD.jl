@@ -19,7 +19,7 @@ TrustRegionMethods = "14486370-d344-40f0-8ff9-262f8a3330be"
 [compat]
 ADTypes = "1.22"
 ArgCheck = "2.5"
-ConcreteStructs = "0.2.3"
+ConcreteStructs = "0.2.4"
 DocStringExtensions = "0.9"
 Enzyme = "0.13"
 LinearAlgebra = "1.12.0"
