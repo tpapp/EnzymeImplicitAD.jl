@@ -7,20 +7,24 @@ public square_implicit_problem, initial_guess
 using ADTypes: AutoEnzyme
 using ArgCheck: @argcheck
 using Enzyme: Duplicated
+import OhMyThreads
 using TrustRegionMethods
 
-"""
+@concrete terse struct SquareImplicitProblem
+    inner_problem
+    solver_AD_backend
+    buffers
+end
+
+@doc """
 Container for square implicit problems defined by `f(x, y(x)) = 0` where `x` and `y`
 have the same dimension.
 
-Solved by iterative methods, needs an initial guess.
+Solved by iterative methods, needs an [`initial guess`](@ref).
 
 This structure is not part
 """
-struct SquareImplicitProblem{P,A}
-    inner_problem::P
-    solver_AD_backend::A
-end
+SquareImplicitProblem
 
 """
 $(SIGNATURES)
@@ -29,21 +33,31 @@ Wrap `problem` that implements [`implicit_residuals!`](@ref) and [`initial_guess
 """
 function square_implicit_problem(problem;
                                  solver_AD_backend = AutoEnzyme(; function_annotation = Duplicated))
-    SquareImplicitProblem(problem, solver_AD_backend)
+    @argcheck is_square(problem)
+    (; n_y) = get_dimensions(problem)
+    By = Vector{Float64}        # type of buffer
+    B_y() = By(undef, n_y)       # make these buffers
+    buffers =  OhMyThreads.TaskLocalValue{@NamedTuple{buffer_y1::By,buffer_y2::By,buffer_y3::By}}(
+        () -> (buffer_y1 = B_y(), buffer_y2 = B_y(), buffer_y3 = B_y()))
+    SquareImplicitProblem(problem, solver_AD_backend, buffers)
 end
+
+get_dimensions(problem::SquareImplicitProblem) = get_dimensions(problem.inner_problem)
+
+is_square(::SquareImplicitProblem) = true
 
 function implicit_residuals!(r, problem::SquareImplicitProblem, x, y)
     implicit_residuals!(r, problem.inner_problem, x, y)
 end
+
+task_local_buffers(problem::SquareImplicitProblem) = problem.buffers[]
 
 """
 $(SIGNATURES)
 
 Provide an initial guess for the inner problem given `x`.
 """
-function initial_guess(inner_problem, x)
-    zero(x)
-end
+initial_guess(inner_problem, x) = zero(x)
 
 struct _SolverWrap{P,X}
     problem::P

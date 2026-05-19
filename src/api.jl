@@ -3,7 +3,24 @@
 #####
 
 """
-$(FUNCTIONNAME)(y, implicit_problem, x)
+$(FUNCTIONNAME)(implicit_problem) -> (; n_x, n_y, n_r)
+
+Return the dimensions of the problem.
+"""
+function get_dimensions end
+
+"""
+$(SIGNATURES)
+
+Return `true` iff the problem is square (`x`, `y`, `r` have the same dimensions).
+"""
+function is_square(implicit_problem)
+    (; n_x, n_y, n_r) = get_dimensions(implicit_problem)
+    n_x == n_y == n_r
+end
+
+"""
+$(FUNCTIONNAME)(y, implicit_problem, x) → nothing
 
 Solve the implicit problem ``g(x, y(x)) = 0`` at `x`, overwriting `y` with ``y(x)`` result.
 
@@ -13,7 +30,7 @@ Return `nothing`. See [`implicit_residuals!`](@ref), which implements ``g`` abov
 function implicit_solve! end
 
 """
-$(FUNCTIONNAME)(r, implicit_problem, x, y)
+$(FUNCTIONNAME)(r, implicit_problem, x, y) → nothing
 
 Calculate the implicit residuals ``r = g(x, y)``, overwriting `r`.
 
@@ -27,3 +44,75 @@ $(FUNCTIONNAME)(r, implicit_problem, x, y)
 the residuals `r` are “approximately” zero, but this is not checked.
 """
 function implicit_residuals! end
+
+"""
+$(SIGNATURES) → (; buffer_y1, buffer_y2, buffer_y3)
+
+Return an object which containes the following buffers, accessible as properties:
+
+- `buffer_y1`, `buffer_y2`, `buffer_y3`; the same length as `y`
+
+The fallback method reallocates these for each use, implementations can provide shared
+buffers but they are guaranteed to be task-local.
+
+$(BUFFER_DOCS)
+"""
+function task_local_buffers(implicit_problem)
+    (; n_y) = get_dimensions(implicit_problem)
+    _v() = Vector{Float64}(undef, n_y)
+    (; buffer_y1 = _v(), buffer_y2 = _v(), buffer_y3 = _v())
+end
+
+@concrete terse struct ∂Y∂X
+    ∂g∂y_factor
+end
+
+"""
+$(SIGNATURES)
+
+Return an object `∂y∂x` that acts like a Jacobian matrix when pre- or post-multiplied by
+a conformable vector, via the methods [`calculate_pushforward!`](@ref) and
+[`accumulate_pullback!`](@ref).
+
+This function is required to be *type-stable*.
+"""
+function calculate_∂y∂x(implicit_problem, x, y)
+    (; buffer_y1, buffer_y2, buffer_y3) = task_local_buffers(implicit_problem)
+    ∂g∂y = _calculate_∂g∂y(implicit_problem, x, y, buffer_y1, buffer_y2, buffer_y3)
+    ∂Y∂X(lu!(∂g∂y))
+end
+
+"""
+$(SIGNATURES)
+
+Calculate the pushforward `dy = ∂y∂x ⋅ dx` into `dy`.
+
+A fallback is provided using Enzyme, but an `implicit_problem` can define its own method.
+"""
+function calculate_pushforward!(dy, implicit_problem, x, y, ∂y∂x::∂Y∂X, dx)
+    (; buffer_y1) = task_local_buffers(implicit_problem)
+    _inplace_∂g∂x_v!(dy, dx, implicit_problem, x, y, buffer_y1)
+    ldiv!(∂y∂x.∂g∂y_factor, dy)
+    dy .*= -1
+    nothing
+end
+
+"""
+$(SIGNATURES)
+
+Accumulate the pullback `dy ⋅ ∂y∂x` into `dx`.
+
+A default is implemented using Enzyme, but an `implicit_problem` can define its own method.
+"""
+function accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x::∂Y∂X, dy)
+    (; ∂g∂y_factor) = ∂y∂x
+    # math:
+    #     dy ⋅ ∂y/∂x = - (dy' / ∂g/∂y) ⋅ ∂g/∂x
+    (; buffer_y1, buffer_y2, buffer_y3) = task_local_buffers(implicit_problem)
+    buffer_y1 .= dy                # buffer_y1 == dy
+    rdiv!(buffer_y1', ∂g∂y_factor) # a == dy' / ∂g∂y
+    _inplace_v_∂g∂x!(buffer_y2, buffer_y1, implicit_problem, x, y,
+                     buffer_y3) # b = (dy' / ∂g/∂y) ⋅ ∂g/∂x
+    dx .-= buffer_y2
+    nothing
+end
