@@ -3,11 +3,20 @@
 #####
 
 """
-$(FUNCTIONNAME)(implicit_problem) -> (; n_x, n_y, n_r)
+$(FUNCTIONNAME)(implicit_problem) → (; n_x, n_y, n_r)
 
 Return the dimensions of the problem.
 """
 function get_dimensions end
+
+"""
+$(FUNCTIONNAME)(implicit_problem) → T
+
+Return the preferred element type for a problem. This is used for buffers and interim
+quantities, and should allow for enough precision even with input/output arrays that
+have less.
+"""
+function get_preferred_eltype end
 
 """
 $(SIGNATURES)
@@ -55,11 +64,14 @@ Return an object which containes the following buffers, accessible as properties
 The fallback method reallocates these for each use, implementations can provide shared
 buffers but they are guaranteed to be task-local.
 
+Each buffer should have the *same type and the same length*.
+
 $(BUFFER_DOCS)
 """
 function task_local_buffers(implicit_problem)
     (; n_y) = get_dimensions(implicit_problem)
-    _v() = Vector{Float64}(undef, n_y)
+    T = get_preferred_eltype(implicit_problem)
+    _v() = Vector{T}(undef, n_y)
     (; buffer_y1 = _v(), buffer_y2 = _v(), buffer_y3 = _v())
 end
 
@@ -74,12 +86,24 @@ Return an object `∂y∂x` that acts like a Jacobian matrix when pre- or post-m
 a conformable vector, via the methods [`calculate_pushforward!`](@ref) and
 [`accumulate_pullback!`](@ref).
 
-This function is required to be *type-stable*.
+The return type should depend only on `implicit_problem`, and should be consistent with
+[`get_∂y∂x_type`]((@ref).
 """
 function calculate_∂y∂x(implicit_problem, x, y)
     (; buffer_y1, buffer_y2, buffer_y3) = task_local_buffers(implicit_problem)
     ∂g∂y = _calculate_∂g∂y(implicit_problem, x, y, buffer_y1, buffer_y2, buffer_y3)
     ∂Y∂X(lu!(∂g∂y))
+end
+
+"""
+$(SIGNATURES)
+
+The return type of [`calculate_∂y∂x`](@ref). Used-defined methods should ensure consistency.
+"""
+function get_∂y∂x_type(implicit_problem)
+    (; n_y) = get_dimensions(implicit_problem)
+    T = get_preferred_eltype(implicit_problem)
+    lu!(typeof(lu!(ones(T, n_y, n_y))))
 end
 
 """
