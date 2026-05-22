@@ -29,6 +29,8 @@ function E.get_dimensions(P::MatrixProblem)
     (; n_x = n, n_y = n, n_r = n)
 end
 
+E.get_preferred_eltype(P::MatrixProblem) = eltype(P.A)
+
 function E.implicit_solve!(y::AbstractVector{T}, P::MatrixProblem{true}, x) where T
     (; A, luB) = P
     mul!(y, A, x, -one(T), zero(T))
