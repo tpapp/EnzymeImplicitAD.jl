@@ -49,6 +49,8 @@ analytical_pushforward(P::MatrixProblem, dx) = -(P.luB \ (P.A * dx))
 
 analytical_pullback(P::MatrixProblem, dy) = (P.luB \ P.A)' * (.-dy)
 
+@test E.API_sanity_checks(MatrixProblem(3)).all_ok
+
 ####
 #### internals
 ####

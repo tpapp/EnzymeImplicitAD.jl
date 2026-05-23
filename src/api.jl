@@ -142,3 +142,71 @@ function accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x::∂Y∂X, dy
     dx .-= buffer_y2
     nothing
 end
+
+####
+#### sanity checks
+####
+
+"""
+Implementation for `API_sanity_checks`, not part of the API.
+"""
+Base.@kwdef struct SanityChecks
+    dimensions_error
+    eltype_error
+end
+
+"""
+$(SIGNATURES) → checks
+
+Check that the interface implemented to `implicit_problem` conforms to the expected API.
+
+Checks are not necessarily comprehensive, and may change without major version changes.
+The user can access the property `checks.all_ok::Bool`, the rest of the fields can be
+used for debugging but are not part of the API.
+"""
+function API_sanity_checks(implicit_problem)
+    dimensions_error = missing
+    eltype_error = missing
+    # dimensions
+    try
+        dimensions = get_dimensions(implicit_problem)
+        (; n_x, n_y, n_r) = dimensions
+        @assert n_x isa Int && n_x > 0
+        @assert n_y isa Int && n_y > 0
+        @assert n_r isa Int && n_r > 0
+        dimensions_error = nothing
+    catch e
+        dimensions_error = e
+        @goto done
+    end
+    # eltype
+    try
+        T = get_preferred_eltype(implicit_problem)
+        @argcheck T <: AbstractFloat
+        eltype_error = nothing
+    catch e
+        eltype_error = e
+        @goto done
+    end
+    # collate and return
+    @label done
+    SanityChecks(; dimensions_error, eltype_error)
+end
+
+function Base.getproperty(checks::SanityChecks, key::Symbol)
+    if key ≡ :all_ok
+        all(f -> getfield(checks, f) ≡ nothing,
+            fieldnames(SanityChecks))
+    else
+        getfield(checks, key)
+    end
+end
+
+function Base.show(io::IO, checks::SanityChecks)
+    if checks.all_ok
+        printstyled(io, "✔ all checks passed";
+                    bold = true, color = :green)
+    else
+        printstyled(io, "❌"; color = :red)
+    end
+end
