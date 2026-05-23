@@ -153,6 +153,7 @@ Implementation for `API_sanity_checks`, not part of the API.
 Base.@kwdef struct SanityChecks
     dimensions_error
     eltype_error
+    implicit_solve_error
 end
 
 """
@@ -165,21 +166,26 @@ The user can access the property `checks.all_ok::Bool`, the rest of the fields c
 used for debugging but are not part of the API.
 """
 function API_sanity_checks(implicit_problem)
-    dimensions_error = missing
-    eltype_error = missing
     # dimensions
+    dimensions_error = missing
+    local n_x
+    local n_y
+    local n_r
     try
         dimensions = get_dimensions(implicit_problem)
         (; n_x, n_y, n_r) = dimensions
         @assert n_x isa Int && n_x > 0
         @assert n_y isa Int && n_y > 0
         @assert n_r isa Int && n_r > 0
+        @assert is_square(implicit_problem) == (n_x == n_y == n_r)
         dimensions_error = nothing
     catch e
         dimensions_error = e
         @goto done
     end
     # eltype
+    eltype_error = missing
+    local T
     try
         T = get_preferred_eltype(implicit_problem)
         @argcheck T <: AbstractFloat
@@ -188,9 +194,20 @@ function API_sanity_checks(implicit_problem)
         eltype_error = e
         @goto done
     end
+    # implicit solve
+    implicit_solve_error = missing
+    x = randn(T, n_x)
+    y = fill(T(NaN), n_y)
+    try
+        implicit_solve!(y, implicit_problem, x)
+        @argcheck all(isfinite, y)
+        implicit_solve_error = nothing
+    catch e
+        implicit_solve_error = e
+    end
     # collate and return
     @label done
-    SanityChecks(; dimensions_error, eltype_error)
+    SanityChecks(; dimensions_error, eltype_error, implicit_solve_error)
 end
 
 function Base.getproperty(checks::SanityChecks, key::Symbol)
@@ -207,6 +224,6 @@ function Base.show(io::IO, checks::SanityChecks)
         printstyled(io, "✔ all checks passed";
                     bold = true, color = :green)
     else
-        printstyled(io, "❌"; color = :red)
+        printstyled(io, "✘"; color = :red)
     end
 end
