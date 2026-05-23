@@ -7,7 +7,6 @@ public square_implicit_problem, initial_guess
 using ADTypes: AutoEnzyme
 using ArgCheck: @argcheck
 using Enzyme: Duplicated
-using LRUCache: LRU
 import OhMyThreads
 using TrustRegionMethods
 
@@ -23,8 +22,6 @@ This structure is not part of the API.
     inner_problem
     solver_AD_backend
     buffers
-    y_cache
-    ∂y∂x_cache
 end
 
 """
@@ -42,13 +39,10 @@ function square_implicit_problem(implicit_problem;
     T = get_preferred_eltype(implicit_problem)
     By = Vector{T}              # type of buffer
     B_y() = By(undef, n_y)      # make these buffers
-    y_cache = LRU{By,By}(; maxsize = y_cache_size)
-    ∂y∂x_cache = LRU{By,get_preferred_eltype(implicit_problem)}(; maxsize = y_cache_size)
     TB = @NamedTuple{buffer_y1::By,buffer_y2::By,buffer_y3::By}
     generate_buffers() = (buffer_y1 = B_y(), buffer_y2 = B_y(), buffer_y3 = B_y())
     buffers =  OhMyThreads.TaskLocalValue{TB}(generate_buffers)
-    SquareImplicitProblem{T}(implicit_problem, solver_AD_backend, buffers,
-                             y_cache, ∂y∂x_cache)
+    SquareImplicitProblem{T}(implicit_problem, solver_AD_backend, buffers)
 end
 
 get_dimensions(problem::SquareImplicitProblem) = get_dimensions(problem.inner_problem)
@@ -87,12 +81,7 @@ function (w::_SolverWrap)(y)
     r
 end
 
-"""
-$(SIGNATURES) → y
-
-Helper function to solve the problem using numerical methods.
-"""
-function _implicit_solve(problem::SquareImplicitProblem, x)
+function implicit_solve!(y, problem::SquareImplicitProblem, x)
     (; inner_problem, solver_AD_backend) = problem
     y0 = initial_guess(inner_problem, x)
     tol = √eps()
@@ -104,11 +93,6 @@ function _implicit_solve(problem::SquareImplicitProblem, x)
         @info "residuals" solution.residual
         error("residuals too big")
     end
-    solution.x                 # y
-end
-
-function implicit_solve!(y, problem::SquareImplicitProblem, x)
-    internal_y = get!(() -> _implicit_solve(problem, x), problem.y_cache, x)
-    copy!(y, internal_y)        # NOTE never expose our internal values, to avoid corruption
+    y .= solution.x
     nothing
 end

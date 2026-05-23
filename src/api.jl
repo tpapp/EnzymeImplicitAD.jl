@@ -88,6 +88,8 @@ a conformable vector, via the methods [`calculate_pushforward!`](@ref) and
 
 The return type should depend only on `implicit_problem`, and should be consistent with
 [`get_∂y∂x_type`]((@ref).
+
+The implementation is free to ignore `y`, eg if it can obtain a solution from `x`.
 """
 function calculate_∂y∂x(implicit_problem, x, y)
     (; buffer_y1, buffer_y2, buffer_y3) = task_local_buffers(implicit_problem)
