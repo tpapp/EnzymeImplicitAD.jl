@@ -82,6 +82,16 @@ end
 """
 $(SIGNATURES)
 
+The return type of [`calculate_∂y∂x`](@ref). Used-defined methods should ensure consistency.
+"""
+function get_∂y∂x_type(implicit_problem)
+    T = get_preferred_eltype(implicit_problem)
+    typeof(lu!(ones(T, 1, 1))) # assumption: lu! is type stable, size does not matter
+end
+
+"""
+$(SIGNATURES)
+
 Return an object `∂y∂x` that acts like a Jacobian matrix when pre- or post-multiplied by
 a conformable vector, via the methods [`calculate_pushforward!`](@ref) and
 [`accumulate_pullback!`](@ref).
@@ -95,17 +105,6 @@ function calculate_∂y∂x(implicit_problem, x, y)
     (; buffer_y1, buffer_y2, buffer_y3) = task_local_buffers(implicit_problem)
     ∂g∂y = _calculate_∂g∂y(implicit_problem, x, y, buffer_y1, buffer_y2, buffer_y3)
     ∂Y∂X(lu!(∂g∂y))
-end
-
-"""
-$(SIGNATURES)
-
-The return type of [`calculate_∂y∂x`](@ref). Used-defined methods should ensure consistency.
-"""
-function get_∂y∂x_type(implicit_problem)
-    (; n_y) = get_dimensions(implicit_problem)
-    T = get_preferred_eltype(implicit_problem)
-    lu!(typeof(lu!(ones(T, n_y, n_y))))
 end
 
 """
@@ -151,31 +150,36 @@ end
 Implementation for `API_sanity_checks`, not part of the API.
 """
 Base.@kwdef struct SanityChecks
-    dimensions_error
-    eltype_error
-    implicit_solve_error
-    implicit_residuals_error
-    task_local_buffers_error
+    check_dimensions
+    check_eltype
+    check_implicit_solve
+    check_implicit_residuals
+    check_task_local_buffers
+    check_∂y∂x
 end
 
 """
 $(SIGNATURES)
 
-Helper macro for implementing [`API_sanity_checks`](@ref). Initializes `errorvar = missing`,
-then sets it to `nothing` after successful evaluation of `body`.
+Helper macro for implementing [`API_sanity_checks`](@ref).
 
-If there is an error, it is caught and stored in `errorvar`, followed by `@goto done`.
+Initializes `errorvar = missing`, then sets it to `nothing` after successful evaluation
+of `body`, which is only run when `!terminate`.
+
+If there is an error, it is caught and stored in `errorvar`, and `terminate = true` is set.
 """
-macro _sanity_check(errorvar, body)
+macro _sanity_check(terminate, errorvar, body)
     err = esc(errorvar)
     quote
         $(err) = missing
-        try
-            $(esc(body))
-            $(err) = nothing
-        catch e
-            $(err) = e
-            $(esc(Expr(:symbolicgoto, :done)))
+        if !$(esc(terminate))
+            try
+                $(esc(body))
+                $(err) = nothing
+            catch e
+                $(err) = e
+                $(esc(terminate)) = true
+            end
         end
     end
 end
@@ -194,7 +198,8 @@ function API_sanity_checks(implicit_problem)
     local n_x
     local n_y
     local n_r
-    @_sanity_check dimensions_error begin
+    terminate = false
+    @_sanity_check terminate check_dimensions begin
         dimensions = get_dimensions(implicit_problem)
         (; n_x, n_y, n_r) = dimensions
         @assert n_x isa Int && n_x > 0
@@ -203,25 +208,25 @@ function API_sanity_checks(implicit_problem)
     end
     # eltype
     local T
-    @_sanity_check eltype_error begin
+    @_sanity_check terminate check_eltype begin
         T = get_preferred_eltype(implicit_problem)
         @argcheck T <: AbstractFloat
     end
     # implicit solve
     x = randn(T, n_x)
     y = fill(T(NaN), n_y)
-    @_sanity_check implicit_solve_error begin
+    @_sanity_check terminate check_implicit_solve begin
         implicit_solve!(y, implicit_problem, x)
         @argcheck all(isfinite, y)
     end
     # implicit residuals
     r = fill(T(NaN), n_y)
-    @_sanity_check implicit_residuals_error begin
+    @_sanity_check terminate check_implicit_residuals begin
         implicit_residuals!(r, implicit_problem, x, y)
-        @argcheck norm(r, 2) ≤ √eps(T) # FIXME this is hardcoded, API?
+        @argcheck sum(abs2, r) ≤ √eps(T) # FIXME this is hardcoded, API?
     end
     # task local buffers
-    @_sanity_check task_local_buffers_error begin
+    @_sanity_check terminate check_task_local_buffers begin
         buffers = task_local_buffers(implicit_problem)
         function _check_y_buffer(b)
             b[1] += one(T)      # check mutability
@@ -233,10 +238,24 @@ function API_sanity_checks(implicit_problem)
         _check_y_buffer(buffers.buffer_y2)
         _check_y_buffer(buffers.buffer_y2)
     end
+    # ∂y∂x
+    @_sanity_check terminate check_∂y∂x begin
+        ∂Y∂X = get_∂y∂x_type(implicit_problem)
+        ∂y∂x = calculate_∂y∂x(implicit_problem, x, y)
+        dx = similar(x)
+        dy = similar(y)
+        # pushforward
+        dx .= one(T) / 2
+        calculate_pushforward!(dy, implicit_problem, x, y, ∂y∂x, dx)
+        @argcheck all(isfinite, dy)
+        # pullback
+        accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x, dy)
+        @argcheck all(isfinite, dx)
+    end
     # collate and return
     @label done
-    SanityChecks(; dimensions_error, eltype_error, implicit_solve_error,
-                 implicit_residuals_error, task_local_buffers_error)
+    SanityChecks(; check_dimensions, check_eltype, check_implicit_solve,
+                 check_implicit_residuals, check_task_local_buffers, check_∂y∂x)
 end
 
 function Base.getproperty(checks::SanityChecks, key::Symbol)
@@ -250,9 +269,18 @@ end
 
 function Base.show(io::IO, checks::SanityChecks)
     if checks.all_ok
-        printstyled(io, "✔ all checks passed";
-                    bold = true, color = :green)
+        printstyled(io, "✔ all checks passed"; bold = true, color = :green)
     else
-        printstyled(io, "✘"; color = :red)
+        printstyled(io, "✘ some checks failed"; bold = true, color = :red)
+        for f in fieldnames(SanityChecks)
+            e = getfield(checks, f)
+            if e ≡ missing
+                printstyled(io, "\n  ? ", string(f); color = :yellow)
+            elseif e ≡ nothing
+                printstyled(io, "\n  ✔ ", string(f); color = :green)
+            else
+                printstyled(io, "\n  ✘ ", string(f), " = ", e; color = :red)
+            end
+        end
     end
 end
