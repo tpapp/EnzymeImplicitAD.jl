@@ -121,6 +121,9 @@ end
     n = 4
     P0 = MatrixProblem(n; solver = false)
     P = E.square_implicit_problem(P0)
+
+    @test E.API_sanity_checks(P).all_ok
+
     x = randn(n)
     y = fill(NaN, n)
     E.implicit_solve!(y, P, x)
