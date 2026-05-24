@@ -157,6 +157,28 @@ Base.@kwdef struct SanityChecks
 end
 
 """
+$(SIGNATURES)
+
+Helper macro for implementing [`API_sanity_checks`](@ref). Initializes `errorvar = missing`,
+then sets it to `nothing` after successful evaluation of `body`.
+
+If there is an error, it is caught and stored in `errorvar`, followed by `@goto done`.
+"""
+macro _sanity_check(errorvar, body)
+    err = esc(errorvar)
+    quote
+        $(err) = missing
+        try
+            $(esc(body))
+            $(err) = nothing
+        catch e
+            $(err) = e
+            $(esc(Expr(:symbolicgoto, :done)))
+        end
+    end
+end
+
+"""
 $(SIGNATURES) → checks
 
 Check that the interface implemented to `implicit_problem` conforms to the expected API.
@@ -167,43 +189,33 @@ used for debugging but are not part of the API.
 """
 function API_sanity_checks(implicit_problem)
     # dimensions
-    dimensions_error = missing
     local n_x
     local n_y
     local n_r
-    try
+    @_sanity_check dimensions_error begin
         dimensions = get_dimensions(implicit_problem)
         (; n_x, n_y, n_r) = dimensions
         @assert n_x isa Int && n_x > 0
         @assert n_y isa Int && n_y > 0
         @assert n_r isa Int && n_r > 0
-        @assert is_square(implicit_problem) == (n_x == n_y == n_r)
-        dimensions_error = nothing
-    catch e
-        dimensions_error = e
-        @goto done
     end
     # eltype
-    eltype_error = missing
     local T
-    try
+    @_sanity_check eltype_error begin
         T = get_preferred_eltype(implicit_problem)
         @argcheck T <: AbstractFloat
-        eltype_error = nothing
-    catch e
-        eltype_error = e
-        @goto done
     end
     # implicit solve
-    implicit_solve_error = missing
     x = randn(T, n_x)
     y = fill(T(NaN), n_y)
-    try
+    @_sanity_check implicit_solve_error begin
         implicit_solve!(y, implicit_problem, x)
         @argcheck all(isfinite, y)
-        implicit_solve_error = nothing
-    catch e
-        implicit_solve_error = e
+    end
+    # implicit residuals
+    r = fill(T(NaN), n_y)
+    @_sanity_check implicit_residuals_error begin
+        implicit_residuals!(r, implicit_problem, x, y)
     end
     # collate and return
     @label done
