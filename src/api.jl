@@ -64,7 +64,7 @@ Return an object which containes the following buffers, accessible as properties
 The fallback method reallocates these for each use, implementations can provide shared
 buffers but they are guaranteed to be task-local.
 
-Each buffer should have the *same type and the same length*.
+The element type of buffers should be consistent with [`get_preferred_eltype`](@ref).
 
 $(BUFFER_DOCS)
 """
@@ -154,6 +154,8 @@ Base.@kwdef struct SanityChecks
     dimensions_error
     eltype_error
     implicit_solve_error
+    implicit_residuals_error
+    task_local_buffers_error
 end
 
 """
@@ -216,10 +218,25 @@ function API_sanity_checks(implicit_problem)
     r = fill(T(NaN), n_y)
     @_sanity_check implicit_residuals_error begin
         implicit_residuals!(r, implicit_problem, x, y)
+        @argcheck norm(r, 2) ≤ √eps(T) # FIXME this is hardcoded, API?
+    end
+    # task local buffers
+    @_sanity_check task_local_buffers_error begin
+        buffers = task_local_buffers(implicit_problem)
+        function _check_y_buffer(b)
+            b[1] += one(T)      # check mutability
+            @argcheck b isa AbstractVector
+            @argcheck eltype(b) ≡ T
+            @argcheck length(b) == n_y
+        end
+        _check_y_buffer(buffers.buffer_y1)
+        _check_y_buffer(buffers.buffer_y2)
+        _check_y_buffer(buffers.buffer_y2)
     end
     # collate and return
     @label done
-    SanityChecks(; dimensions_error, eltype_error, implicit_solve_error)
+    SanityChecks(; dimensions_error, eltype_error, implicit_solve_error,
+                 implicit_residuals_error, task_local_buffers_error)
 end
 
 function Base.getproperty(checks::SanityChecks, key::Symbol)
