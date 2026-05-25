@@ -12,7 +12,7 @@ Helper function for consistent value types in dictionaries.
 end
 
 # NOTE: parametrization assumes `x` and `y` values have the same type
-struct CacheImplicitProblem{P,Y,∂Y∂X}
+struct CacheImplicitProblem{Y,∂Y∂X,P}
     inner_problem::P
     min_size::Int
     max_size::Int
@@ -23,8 +23,8 @@ for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y
     @eval ($f)(implicit_problem::CacheImplicitProblem) = ($f)(implicit_problem.inner_problem)
 end
 
-function implicit_residuals!(y, implicit_problem::CacheImplicitProblem, x)
-    implicit_residuals!(y, implicit_problem.inner_problem, x)
+function implicit_residuals!(r, implicit_problem::CacheImplicitProblem, x, y)
+    implicit_residuals!(r, implicit_problem.inner_problem, x, y)
 end
 
 """
@@ -37,10 +37,10 @@ Specficially, at least `min_size` and at most `max_size` most recently used valu
 function cache_implicit_problem(inner_problem::P;
                                 min_size::Int = 10, max_size = 2 * min_size) where P
     @argcheck 0 < min_size < max_size
-    T = get_preferred_type(inner_problem)
+    T = get_preferred_eltype(inner_problem)
     Y = Vector{T}
     ∂Y∂X = get_∂y∂x_type(inner_problem)
-    CacheImplicitProblem{P,Y,∂Y∂X}(inner_problem, min_size, max_size,
+    CacheImplicitProblem{Y,∂Y∂X,P}(inner_problem, min_size, max_size,
                                    Dict{Y,_cache_value_type(Y,∂Y∂X)}())
 end
 
@@ -49,7 +49,7 @@ function _cull!(implicit_problem::CacheImplicitProblem)
     timestamps = [x.timestamp for x in values(dict)]
     sort!(timestamps; rev = true)
     cutoff = timestamps[min_size]
-    for (k, v) in keys(dict)
+    for (k, v) in pairs(dict)
         if v.timestamp < cutoff
             delete!(dict, k)
         end
@@ -68,11 +68,14 @@ function implicit_solve!(y2, implicit_problem::CacheImplicitProblem{Y}, x) where
         (; y, ∂y∂x) = dict[x]
         dict[x] = (; timestamp, y, ∂y∂x)
     else
-        y = f(x)
+        (; n_y) = get_dimensions(inner_problem)
+        y = Vector{get_preferred_eltype(inner_problem)}(undef, n_y)
+        implicit_solve!(y, inner_problem, x)
         dict[_ensure_typed_copy(Y, x)] = (; timestamp, y, ∂y∂x = nothing)
-        length(dict) > max_size && _cull!(cache)
+        length(dict) > max_size && _cull!(implicit_problem)
     end
     copy!(y2, y)
+    nothing
 end
 
 function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, _y) where Y
@@ -94,6 +97,5 @@ function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, _y) wh
         dict[_ensure_typed_copy(Y, x)] = (; timestamp, y, ∂y∂x)
         length(dict) > max_size && _cull!(cache)
     end
-    copy!(y2, y)
     ∂y∂x
 end
