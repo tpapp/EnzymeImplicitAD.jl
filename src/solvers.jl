@@ -18,7 +18,7 @@ Solved by iterative methods, needs an [`initial guess`](@ref).
 
 This structure is not part of the API.
 """
-@concrete terse struct SquareImplicitProblem
+@concrete terse struct SquareImplicitProblem{T}
     inner_problem
     solver_AD_backend
     buffers
@@ -27,20 +27,29 @@ end
 """
 $(SIGNATURES)
 
-Wrap `problem` that implements [`implicit_residuals!`](@ref) and [`initial_guess`](@ref), implementing [`implicit_solve!`](@ref)
+Wrap `implicit_problem` that implements [`implicit_residuals!`](@ref) and [`initial_guess`](@ref), implementing [`implicit_solve!`](@ref)
 """
-function square_implicit_problem(problem;
-                                 solver_AD_backend = AutoEnzyme(; function_annotation = Duplicated))
-    @argcheck is_square(problem)
-    (; n_y) = get_dimensions(problem)
-    By = Vector{Float64}        # type of buffer
-    B_y() = By(undef, n_y)       # make these buffers
-    buffers =  OhMyThreads.TaskLocalValue{@NamedTuple{buffer_y1::By,buffer_y2::By,buffer_y3::By}}(
-        () -> (buffer_y1 = B_y(), buffer_y2 = B_y(), buffer_y3 = B_y()))
-    SquareImplicitProblem(problem, solver_AD_backend, buffers)
+function square_implicit_problem(implicit_problem;
+                                 solver_AD_backend = AutoEnzyme(; function_annotation = Duplicated),
+                                 y_cache_size::Int = 100,
+                                 ∂y∂x_cache_size::Int = 100
+                                 )
+    @argcheck is_square(implicit_problem)
+    (; n_y) = get_dimensions(implicit_problem)
+    T = get_preferred_eltype(implicit_problem)
+    By = Vector{T}              # type of buffer
+    B_y() = By(undef, n_y)      # make these buffers
+    TB = @NamedTuple{buffer_y1::By,buffer_y2::By,buffer_y3::By}
+    generate_buffers() = (buffer_y1 = B_y(), buffer_y2 = B_y(), buffer_y3 = B_y())
+    buffers =  OhMyThreads.TaskLocalValue{TB}(generate_buffers)
+    SquareImplicitProblem{T}(implicit_problem, solver_AD_backend, buffers)
 end
 
 get_dimensions(problem::SquareImplicitProblem) = get_dimensions(problem.inner_problem)
+
+function get_preferred_eltype(problem::SquareImplicitProblem)
+    get_preferred_eltype(problem.inner_problem)
+end
 
 is_square(::SquareImplicitProblem) = true
 
@@ -78,7 +87,8 @@ function implicit_solve!(y, problem::SquareImplicitProblem, x)
     tol = √eps()
     root_problem = trust_region_problem(_SolverWrap(inner_problem, x), y0;
                                         AD_backend = solver_AD_backend)
-    solution = trust_region_solver(root_problem; stopping_criterion = SolverStoppingCriterion(; residual_norm = tol))
+    stopping_criterion = SolverStoppingCriterion(; residual_norm = tol)
+    solution = trust_region_solver(root_problem; stopping_criterion)
     if maximum(abs, solution.residual) > tol
         @info "residuals" solution.residual
         error("residuals too big")

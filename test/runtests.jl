@@ -1,10 +1,36 @@
-using LinearAlgebra, Test, Enzyme, EnzymeTestUtils
 using EnzymeImplicitAD
 import EnzymeImplicitAD as E
+using LinearAlgebra, Test, Enzyme, EnzymeTestUtils, FiniteDifferences
 
 ####
 #### utilities for tests
 ####
+
+###
+### functional interface
+###
+
+function implicit_solve(implicit_problem, x)
+    T = E.get_preferred_eltype(implicit_problem)
+    (; n_y) = E.get_dimensions(implicit_problem)
+    y = Vector{T}(undef, n_y)
+    E.implicit_solve!(y, implicit_problem, x)
+    y
+end
+
+###
+### FDM pushforward and pullback
+###
+
+const FDM = central_fdm(5, 1)
+
+fdm_pushforward(P, x, dx; fdm = FDM) = jvp(fdm, Base.Fix1(implicit_solve, P), (x, dx))
+
+fdm_pullback(P, x, dy; fdm = FDM) = j′vp(fdm, Base.Fix1(implicit_solve, P), dy, x)[1]
+
+###
+### linear test problem
+###
 
 """
 A linear test problem ``A⋅x + B⋅y = 0``, used for testing.
@@ -29,6 +55,8 @@ function E.get_dimensions(P::MatrixProblem)
     (; n_x = n, n_y = n, n_r = n)
 end
 
+E.get_preferred_eltype(P::MatrixProblem) = eltype(P.A)
+
 function E.implicit_solve!(y::AbstractVector{T}, P::MatrixProblem{true}, x) where T
     (; A, luB) = P
     mul!(y, A, x, -one(T), zero(T))
@@ -46,6 +74,8 @@ end
 analytical_pushforward(P::MatrixProblem, dx) = -(P.luB \ (P.A * dx))
 
 analytical_pullback(P::MatrixProblem, dy) = (P.luB \ P.A)' * (.-dy)
+
+@test E.API_sanity_checks(MatrixProblem(3)).all_ok
 
 ####
 #### internals
@@ -117,6 +147,9 @@ end
     n = 4
     P0 = MatrixProblem(n; solver = false)
     P = E.square_implicit_problem(P0)
+
+    @test E.API_sanity_checks(P).all_ok
+
     x = randn(n)
     y = fill(NaN, n)
     E.implicit_solve!(y, P, x)
@@ -133,6 +166,50 @@ end
     @testset "test_reverse" begin
         test_reverse(E.implicit_solve!, Const, (y, Duplicated), P, (x, Duplicated))
     end
+end
+
+@testset "cached solver" begin
+    n = 4
+    K = 10
+    P0 = MatrixProblem(n)
+    P = E.cache_implicit_problem(P0; min_size = K, max_size = 2 * K)
+
+    @test E.API_sanity_checks(P).all_ok
+
+    for _ in 1:(4*K)            # > max_size to test culling
+        x = randn(n)
+        y = fill(NaN, n)
+        E.implicit_solve!(y, P, x)
+        r = fill(NaN, n)
+        # check solution via rootfinder
+        E.implicit_residuals!(r, P, x, y)
+        @test maximum(abs, r) ≤ 1e-10
+
+        # pushforward
+        dx = randn(n)
+        dy = fill(NaN, n)
+        autodiff(Forward, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
+        @test dy ≈ fdm_pushforward(P, x, dx)
+
+        # pullback
+        dy0 = randn(n)
+        dy = copy(dy0)
+        dx0 = randn(n)
+        dx = copy(dx0)
+        autodiff(Reverse, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
+        @test dx ≈ (fdm_pullback(P, x, dy0) .+ dx0)
+    end
+
+    # NOTE cf https://github.com/EnzymeAD/Enzyme.jl/issues/3123
+    # disabled for now, use manual testing above
+    # @testset "test_forward" begin
+    #     @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)
+    #         test_forward(E.implicit_solve!, Const, (y, Ty), P, (x, Tx))
+    #     end
+    # end
+    # @testset "test_reverse" begin
+    #     test_reverse(E.implicit_solve!, Const, (y, Duplicated), P, (x, Duplicated))
+    # end
 end
 
 ## NOTE add JET to the test environment, then uncomment
