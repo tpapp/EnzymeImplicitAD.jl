@@ -75,18 +75,28 @@ function task_local_buffers(implicit_problem)
     (; buffer_y1 = _v(), buffer_y2 = _v(), buffer_y3 = _v())
 end
 
-@concrete terse struct ∂Y∂X
+@concrete struct ∂Y∂X
     ∂g∂y_factor
+end
+
+function Base.show(io::IO, ∂y∂x::∂Y∂X)
+    n_x, n_y = size(∂y∂x.∂g∂y_factor)
+    print(io, "∂Y∂X(« $(n_x) × $(n_y) »)")
 end
 
 """
 $(SIGNATURES)
 
-The return type of [`calculate_∂y∂x`](@ref). Used-defined methods should ensure consistency.
+The return type of [`calculate_∂y∂x`](@ref).
+
+Should be a concrete type that depends only on `implicit_problem`, not `x` or `y`.
+
+Used-defined methods should ensure consistency.
 """
 function get_∂y∂x_type(implicit_problem)
     T = get_preferred_eltype(implicit_problem)
-    typeof(lu!(ones(T, 1, 1))) # assumption: lu! is type stable, size does not matter
+    L = typeof(lu!(ones(T, 1, 1))) # assumption: lu! is type stable, size does not matter
+    ∂Y∂X{L}
 end
 
 """
@@ -236,12 +246,14 @@ function API_sanity_checks(implicit_problem)
         end
         _check_y_buffer(buffers.buffer_y1)
         _check_y_buffer(buffers.buffer_y2)
-        _check_y_buffer(buffers.buffer_y2)
+        _check_y_buffer(buffers.buffer_y3)
     end
     # ∂y∂x
     @_sanity_check terminate check_∂y∂x begin
         ∂Y∂X = get_∂y∂x_type(implicit_problem)
+        @argcheck isconcretetype(∂Y∂X)
         ∂y∂x = calculate_∂y∂x(implicit_problem, x, y)
+        @argcheck ∂y∂x isa ∂Y∂X
         dx = similar(x)
         dy = similar(y)
         # pushforward
@@ -279,7 +291,8 @@ function Base.show(io::IO, checks::SanityChecks)
             elseif e ≡ nothing
                 printstyled(io, "\n  ✔ ", string(f); color = :green)
             else
-                printstyled(io, "\n  ✘ ", string(f), " = ", e; color = :red)
+                printstyled(io, "\n  ✘ ", string(f), " :\n"; color = :red)
+                showerror(io, e)
             end
         end
     end
