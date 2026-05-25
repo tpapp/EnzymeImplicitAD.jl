@@ -2,6 +2,8 @@
 ##### wrapper to cache y and ∂y∂x
 #####
 
+using ThreadSafeDicts: ThreadSafeDict
+
 """
 $(SIGNATURES)
 
@@ -12,11 +14,20 @@ Helper function for consistent value types in dictionaries.
 end
 
 # NOTE: parametrization assumes `x` and `y` values have the same type
-struct CacheImplicitProblem{Y,∂Y∂X,P}
-    inner_problem::P
+@concrete struct CacheImplicitProblem{Y,∂Y∂X,D<:AbstractDict{Y,_cache_value_type(Y,∂Y∂X)}}
+    inner_problem
     min_size::Int
     max_size::Int
-    dict::Dict{Y,_cache_value_type(Y,∂Y∂X)}
+    dict::D
+    function CacheImplicitProblem(inner_problem, min_size::Int, max_size::Int)
+        @argcheck 0 < min_size < max_size
+        T = get_preferred_eltype(inner_problem)
+        Y = Vector{T}
+        ∂Y∂X = get_∂y∂x_type(inner_problem)
+        dict = ThreadSafeDict{Y,_cache_value_type(Y,∂Y∂X)}()
+        new{Y,∂Y∂X,typeof(dict),typeof(inner_problem)}(inner_problem, min_size, max_size,
+                                                       dict)
+    end
 end
 
 for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y∂x_type]
@@ -36,12 +47,7 @@ Specficially, at least `min_size` and at most `max_size` most recently used valu
 """
 function cache_implicit_problem(inner_problem::P;
                                 min_size::Int = 10, max_size = 2 * min_size) where P
-    @argcheck 0 < min_size < max_size
-    T = get_preferred_eltype(inner_problem)
-    Y = Vector{T}
-    ∂Y∂X = get_∂y∂x_type(inner_problem)
-    CacheImplicitProblem{Y,∂Y∂X,P}(inner_problem, min_size, max_size,
-                                   Dict{Y,_cache_value_type(Y,∂Y∂X)}())
+    CacheImplicitProblem(inner_problem, min_size, max_size)
 end
 
 function _cull!(implicit_problem::CacheImplicitProblem)
