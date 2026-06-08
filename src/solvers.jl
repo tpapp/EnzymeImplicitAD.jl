@@ -73,7 +73,7 @@ A callable for residuals evaluated at `x`.
 end
 
 function (w::_SolverWrap)(y)
-    (; problem, x, r) = w
+    (; problem, x) = w
     r = zeros(get_dimensions(problem).n_r)
     implicit_residuals!(r, problem, x, y)
     r
