@@ -29,6 +29,6 @@ Technically yes, since the package will be kept at `v0.x`, so everything is assu
 
 The code is intended to be usable, with unit tests, and if you commit the manifest it will be reproducible. That said, the project may be abandonned at any point without prior notice, and you should be ready to migrate to a new package when that happens.
 
-### Will this package be registered/release eventually?
+### Will this package be registered/released eventually?
 
 Not in this form. If I finish experimentation and arrive at a stable API, it will either be contributed into an existing package, or cleaned up significantly and then released under a different name.
