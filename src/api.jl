@@ -161,6 +161,9 @@ end
 
 """
 Implementation for `API_sanity_checks`, not part of the API.
+
+Each field is either `missing` (test not performed), `nothing` (test passed), or an
+error-backtrace pair.
 """
 Base.@kwdef struct SanityChecks
     check_dimensions
@@ -190,7 +193,7 @@ macro _sanity_check(terminate, errorvar, body)
                 $(esc(body))
                 $(err) = nothing
             catch e
-                $(err) = e
+                $(err) = (e, catch_backtrace())
                 $(esc(terminate)) = true
             end
         end
@@ -296,7 +299,7 @@ function Base.show(io::IO, checks::SanityChecks)
                 printstyled(io, "\n  ✔ ", string(f); color = :green)
             else
                 printstyled(io, "\n  ✘ ", string(f), " :\n"; color = :red)
-                showerror(io, e)
+                showerror(io, e...)
             end
         end
     end
