@@ -48,11 +48,20 @@ struct MatrixProblem{S,TA<:AbstractMatrix,TB<:AbstractMatrix,TL}
     end
 end
 
-MatrixProblem(n::Int; solver::Bool = true) = MatrixProblem(randn(n, n), randn(n, n); solver)
+"""
+Make a random (square, `n_r = n_y`) matrix problem with the given dimensions.
+
+When `solver = true` (the default), a solver method is implemented, otherwise it errors.
+"""
+function MatrixProblem(n_y::Int, n_x::Int = n_y; solver::Bool = true)
+    @assert n_x > 0
+    @assert n_y > 0
+    MatrixProblem(randn(n_y, n_x), randn(n_y, n_y); solver)
+end
 
 function E.get_dimensions(P::MatrixProblem)
-    n = size(P.A, 1)
-    (; n_x = n, n_y = n, n_r = n)
+    n_y, n_x = size(P.A)
+    (; n_x, n_y, n_r = n_y)
 end
 
 E.get_preferred_eltype(P::MatrixProblem) = eltype(P.A)
@@ -82,10 +91,10 @@ analytical_pullback(P::MatrixProblem, dy) = (P.luB \ P.A)' * (.-dy)
 ####
 
 @testset "∂g∂y, ∂g∂x_v, v_∂g∂x extraction" begin
-    n = 3
-    (; A, B) = P = MatrixProblem(n)
-    x = randn(n)
-    y = randn(n)
+    n_x, n_y = 3, 4
+    (; A, B) = P = MatrixProblem(n_y, n_x)
+    x = randn(n_x)
+    y = randn(n_y)
     dy = similar(y)
     b1 = similar(y)
     b2 = similar(y)
@@ -95,12 +104,12 @@ analytical_pullback(P::MatrixProblem, dy) = (P.luB \ P.A)' * (.-dy)
     @test J ≈ B
 
     Jv = similar(y)
-    v = randn(n)
+    v = randn(n_x)
     E._inplace_∂g∂x_v!(Jv, v, P, x, y, b1)
     @test Jv ≈ A * v
 
-    vJ = similar(y)
-    v = randn(n)
+    vJ = similar(x)
+    v = randn(n_y)
     E._inplace_v_∂g∂x!(vJ, copy(v), P, x, y, b1)
     @test vJ ≈ A' * v
 end
@@ -117,12 +126,12 @@ end
 end
 
 @testset "reverse mode consistency test" begin
-    n = 3
-    (; A, B) = P = MatrixProblem(n)
-    x = randn(n)
-    dx = zeros(n)
-    y = fill(NaN, n)
-    dy = randn(n)
+    n_x, n_y = 3, 2
+    (; A, B) = P = MatrixProblem(n_y, n_x)
+    x = randn(n_x)
+    dx = zeros(n_x)
+    y = fill(NaN, n_y)
+    dy = randn(n_y)
     expected_dx = analytical_pullback(P, dy)
     autodiff(Reverse, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
     @test expected_dx ≈ dx
@@ -144,16 +153,16 @@ end
 end
 
 @testset "implicit solver" begin
-    n = 4
-    P0 = MatrixProblem(n; solver = false)
+    n_x, n_y = 4, 5
+    P0 = MatrixProblem(n_y, n_x; solver = false)
     P = E.square_implicit_problem(P0)
 
     @test E.API_sanity_checks(P).all_ok
 
-    x = randn(n)
-    y = fill(NaN, n)
+    x = randn(n_x)
+    y = fill(NaN, n_y)
     E.implicit_solve!(y, P, x)
-    r = fill(NaN, n)
+    r = fill(NaN, n_y)
     # check solution via rootfinder
     E.implicit_residuals!(r, P, x, y)
     @test maximum(abs, r) ≤ 1e-10

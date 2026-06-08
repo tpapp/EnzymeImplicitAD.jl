@@ -18,15 +18,15 @@ solution (not checked).
 $(BUFFER_DOCS)
 """
 function _calculate_∂g∂y(implicit_problem, x::AbstractVector, y::AbstractVector{T},
-                         buffer_y1, buffer_y2, buffer_y3) where T
+                         buffer_y, buffer_r, buffer_r2) where T
     # aliases for buffers
-    dy = buffer_y1
-    r = buffer_y2
-    dr = buffer_y3
+    dy = buffer_y
+    r = buffer_r
+    dr = buffer_r2
     # calculate Jacobian column by column
     make_zero!(dy)
-    J = similar(y, T, axes(y, 1), axes(x, 1))
-    for i in axes(x, 1)
+    J = similar(y, T, axes(r, 1), axes(y, 1))
+    for i in axes(y, 1)
         make_zero!(dr)          # FIXME do I need this?
         dy[i] = one(T)
         autodiff(Forward, implicit_residuals!, Duplicated(r, dr),
@@ -43,10 +43,15 @@ $(SIGNATURES)
 Calculate `∂g/∂x ⋅ v` and put the result in the first argument, using forward mode in Enzyme.
 
 $(BUFFER_DOCS)
+
+### Expected dimensions (not checked):
+
+- `length(v) == n_x`
+- `length(Jv) == n_r`
 """
-function _inplace_∂g∂x_v!(Jv, v, implicit_problem, x, y, buffer_y1)
+function _inplace_∂g∂x_v!(Jv, v, implicit_problem, x, y, buffer_r)
     make_zero!(Jv)              # FIXME: do I need this?
-    autodiff(Forward, implicit_residuals!, Duplicated(buffer_y1, Jv), Const(implicit_problem),
+    autodiff(Forward, implicit_residuals!, Duplicated(buffer_r, Jv), Const(implicit_problem),
              Duplicated(x, v), Const(y))
     nothing
 end
@@ -59,10 +64,32 @@ Calculate `v ⋅ ∂g/∂x` and put the result in the first argument, using reve
 **Caution:** may modify `v`.
 
 $(BUFFER_DOCS)
+
+### Expected dimensions (not checked):
+
+- `length(v) == n_r`
+- `length(Jv) == n_x`
 """
-function _inplace_v_∂g∂x!(vJ, v, implicit_problem, x, y, buffer_y1)
+function _inplace_v_∂g∂x!(vJ, v, implicit_problem, x, y, buffer_r)
     make_zero!(vJ)              # FIXME: do I need this?
-    autodiff(Reverse, implicit_residuals!, Duplicated(buffer_y1, v), Const(implicit_problem),
+    autodiff(Reverse, implicit_residuals!, Duplicated(buffer_r, v), Const(implicit_problem),
              Duplicated(x, vJ), Const(y))
     nothing
+end
+
+
+"""
+$(SIGNATURES)
+
+Helper function to make buffers of the right dimension. Not part of the API. Return type
+is consistent with `[_make_buffers_type](@ref)`.
+"""
+function _make_buffers(T; n_x::Int, n_y::Int, n_r::Int)
+    _v(n) = Vector{T}(undef, n)
+    (; buffer_y = _v(n_y), buffer_x = _v(n_x), buffer_r = _v(n_r), buffer_r2 = _v(n_r))
+end
+
+function _make_buffers_type(T)
+    V = Vector{T}
+    @NamedTuple{buffer_y::V,buffer_x::V,buffer_r::V,buffer_r2::V}
 end

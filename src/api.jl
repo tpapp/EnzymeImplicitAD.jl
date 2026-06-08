@@ -21,11 +21,11 @@ function get_preferred_eltype end
 """
 $(SIGNATURES)
 
-Return `true` iff the problem is square (`x`, `y`, `r` have the same dimensions).
+Return `true` iff the problem is square (`y`, `r` have the same dimensions).
 """
 function is_square(implicit_problem)
-    (; n_x, n_y, n_r) = get_dimensions(implicit_problem)
-    n_x == n_y == n_r
+    (; n_y, n_r) = get_dimensions(implicit_problem)
+    n_y == n_r
 end
 
 """
@@ -57,9 +57,13 @@ function implicit_residuals! end
 """
 $(SIGNATURES) → (; buffer_y1, buffer_y2, buffer_y3)
 
-Return an object which containes the following buffers, accessible as properties:
+Return an object which containes the following buffers, which are accessible as
+properties. Each is a vector, with lengths consistent with the corresponding dimension
+in [`get_dimensions`](@ref).
 
-- `buffer_y1`, `buffer_y2`, `buffer_y3`; the same length as `y`
+- `buffer_r`, `buffer_r2`: has length `n_r`
+- `buffer_x`: has length `n_x`
+- `buffer_y`: has length `n_y`
 
 The fallback method reallocates these for each use, implementations can provide shared
 buffers but they are guaranteed to be task-local.
@@ -69,10 +73,7 @@ The element type of buffers should be consistent with [`get_preferred_eltype`](@
 $(BUFFER_DOCS)
 """
 function task_local_buffers(implicit_problem)
-    (; n_y) = get_dimensions(implicit_problem)
-    T = get_preferred_eltype(implicit_problem)
-    _v() = Vector{T}(undef, n_y)
-    (; buffer_y1 = _v(), buffer_y2 = _v(), buffer_y3 = _v())
+    _make_buffers(get_preferred_eltype(implicit_problem); get_dimensions(implicit_problem)...)
 end
 
 @concrete struct ∂Y∂X
@@ -112,8 +113,8 @@ The return type should depend only on `implicit_problem`, and should be consiste
 The implementation is free to ignore `y`, eg if it can obtain a solution from `x`.
 """
 function calculate_∂y∂x(implicit_problem, x, y)
-    (; buffer_y1, buffer_y2, buffer_y3) = task_local_buffers(implicit_problem)
-    ∂g∂y = _calculate_∂g∂y(implicit_problem, x, y, buffer_y1, buffer_y2, buffer_y3)
+    (; buffer_y, buffer_r, buffer_r2) = task_local_buffers(implicit_problem)
+    ∂g∂y = _calculate_∂g∂y(implicit_problem, x, y, buffer_y, buffer_r, buffer_r2)
     ∂Y∂X(lu!(∂g∂y))
 end
 
@@ -125,8 +126,9 @@ Calculate the pushforward `dy = ∂y∂x ⋅ dx` into `dy`.
 A fallback is provided using Enzyme, but an `implicit_problem` can define its own method.
 """
 function calculate_pushforward!(dy, implicit_problem, x, y, ∂y∂x::∂Y∂X, dx)
-    (; buffer_y1) = task_local_buffers(implicit_problem)
-    _inplace_∂g∂x_v!(dy, dx, implicit_problem, x, y, buffer_y1)
+    @assert is_square(implicit_problem)
+    (; buffer_r) = task_local_buffers(implicit_problem)
+    _inplace_∂g∂x_v!(dy, dx, implicit_problem, x, y, buffer_r)
     ldiv!(∂y∂x.∂g∂y_factor, dy)
     dy .*= -1
     nothing
@@ -140,15 +142,16 @@ Accumulate the pullback `dy ⋅ ∂y∂x` into `dx`.
 A default is implemented using Enzyme, but an `implicit_problem` can define its own method.
 """
 function accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x::∂Y∂X, dy)
+    @assert is_square(implicit_problem)
     (; ∂g∂y_factor) = ∂y∂x
     # math:
     #     dy ⋅ ∂y/∂x = - (dy' / ∂g/∂y) ⋅ ∂g/∂x
-    (; buffer_y1, buffer_y2, buffer_y3) = task_local_buffers(implicit_problem)
-    buffer_y1 .= dy                # buffer_y1 == dy
-    rdiv!(buffer_y1', ∂g∂y_factor) # a == dy' / ∂g∂y
-    _inplace_v_∂g∂x!(buffer_y2, buffer_y1, implicit_problem, x, y,
-                     buffer_y3) # b = (dy' / ∂g/∂y) ⋅ ∂g/∂x
-    dx .-= buffer_y2
+    (; buffer_x, buffer_y, buffer_r) = task_local_buffers(implicit_problem)
+    buffer_y .= dy                # buffer_y1 == dy
+    rdiv!(buffer_y', ∂g∂y_factor) # a == dy' / ∂g∂y
+    _inplace_v_∂g∂x!(buffer_x, buffer_y, implicit_problem, x, y,
+                     buffer_r)  # b = (dy' / ∂g/∂y) ⋅ ∂g/∂x
+    dx .-= buffer_x
     nothing
 end
 
@@ -238,15 +241,16 @@ function API_sanity_checks(implicit_problem)
     # task local buffers
     @_sanity_check terminate check_task_local_buffers begin
         buffers = task_local_buffers(implicit_problem)
-        function _check_y_buffer(b)
+        function _check_y_buffer(b, n)
             b[1] += one(T)      # check mutability
             @argcheck b isa AbstractVector
             @argcheck eltype(b) ≡ T
-            @argcheck length(b) == n_y
+            @argcheck length(b) == n
         end
-        _check_y_buffer(buffers.buffer_y1)
-        _check_y_buffer(buffers.buffer_y2)
-        _check_y_buffer(buffers.buffer_y3)
+        _check_y_buffer(buffers.buffer_x, n_x)
+        _check_y_buffer(buffers.buffer_y, n_y)
+        _check_y_buffer(buffers.buffer_r, n_r)
+        _check_y_buffer(buffers.buffer_r2, n_r)
     end
     # ∂y∂x
     @_sanity_check terminate check_∂y∂x begin
