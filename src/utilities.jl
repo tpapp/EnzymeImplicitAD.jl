@@ -89,6 +89,11 @@ function _make_buffers(T; n_x::Int, n_y::Int, n_r::Int)
     (; buffer_y = _v(n_y), buffer_x = _v(n_x), buffer_r = _v(n_r), buffer_r2 = _v(n_r))
 end
 
+"""
+$(SIGNATURES)
+
+The return type of [`_make_buffers`](@ref).
+"""
 function _make_buffers_type(T)
     V = Vector{T}
     @NamedTuple{buffer_y::V,buffer_x::V,buffer_r::V,buffer_r2::V}

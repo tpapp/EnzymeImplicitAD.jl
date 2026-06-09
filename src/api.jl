@@ -57,7 +57,7 @@ function implicit_residuals! end
 """
 $(SIGNATURES) → (; buffer_y1, buffer_y2, buffer_y3)
 
-Return an object which containes the following buffers, which are accessible as
+Return an object which contains the following buffers, which are accessible as
 properties. Each is a vector, with lengths consistent with the corresponding dimension
 in [`get_dimensions`](@ref).
 
