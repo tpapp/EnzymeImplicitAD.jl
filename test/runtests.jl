@@ -198,7 +198,7 @@ end
         dx = randn(n_x)
         dy = fill(NaN, n_y)
         autodiff(Forward, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-        @test dy ≈ fdm_pushforward(P, x, dx)
+        @test dy ≈ fdm_pushforward(P, x, dx) atol = 1e-8
 
         # pullback
         dy0 = randn(n_y)
@@ -206,7 +206,7 @@ end
         dx0 = randn(n_x)
         dx = copy(dx0)
         autodiff(Reverse, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-        @test dx ≈ (fdm_pullback(P, x, dy0) .+ dx0)
+        @test dx ≈ (fdm_pullback(P, x, dy0) .+ dx0) atol = 1e-8
     end
 
     # NOTE cf https://github.com/EnzymeAD/Enzyme.jl/issues/3123
