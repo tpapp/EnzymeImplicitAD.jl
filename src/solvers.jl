@@ -24,16 +24,25 @@ This structure is not part of the API.
     buffers
 end
 
+function Base.show(io::IO, problem::SquareImplicitProblem)
+    (; inner_problem) = problem
+    (; n_x, n_y, n_r) = get_dimensions(inner_problem)
+    print(io, "wrapping $(n_x) × $(n_y) → $(n_r) problem $(inner_problem)")
+end
+
 """
 $(SIGNATURES)
 
-Wrap `implicit_problem` that implements [`implicit_residuals!`](@ref) and [`initial_guess`](@ref), implementing [`implicit_solve!`](@ref)
+Wrap `implicit_problem` that implements at least
+
+- [`implicit_residuals!`](@ref),
+- [`get_preferred_eltype`](@ref) (which has a default fallback),
+- [`get_dimensions`](@ref),
+
+and ideally also [`initial_guess`](@ref), implementing [`implicit_solve!`](@ref).
 """
 function square_implicit_problem(implicit_problem;
-                                 solver_AD_backend = AutoEnzyme(; function_annotation = Duplicated),
-                                 y_cache_size::Int = 100,
-                                 ∂y∂x_cache_size::Int = 100
-                                 )
+                                 solver_AD_backend = AutoEnzyme(; function_annotation = Duplicated))
     @argcheck is_square(implicit_problem)
     (; n_x, n_r, n_y) = get_dimensions(implicit_problem)
     T = get_preferred_eltype(implicit_problem)

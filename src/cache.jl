@@ -30,6 +30,11 @@ end
     end
 end
 
+function Base.show(io::IO, problem::CacheImplicitProblem)
+    (; min_size, max_size, inner_problem) = problem
+    print(io, "caching [$(min_size),$(max_size)] evaluations $(inner_problem)")
+end
+
 for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y∂x_type]
     @eval ($f)(implicit_problem::CacheImplicitProblem) = ($f)(implicit_problem.inner_problem)
 end
