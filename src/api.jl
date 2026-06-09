@@ -240,7 +240,7 @@ function API_sanity_checks(implicit_problem)
     # implicit residuals
     r = fill(T(NaN), n_y)
     @_sanity_check terminate check_implicit_residuals begin
-        implicit_residuals!(r, implicit_problem, x, y)
+        @argcheck implicit_residuals!(r, implicit_problem, x, y) ≡ nothing
         @argcheck sum(abs2, r) ≤ √eps(T) # FIXME this is hardcoded, API?
     end
     # task local buffers
