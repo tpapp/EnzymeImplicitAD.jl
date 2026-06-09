@@ -2,7 +2,7 @@
 ##### solver integration, should be factored out at some point
 #####
 
-public square_implicit_problem, initial_guess
+public square_implicit_problem
 
 using ADTypes: AutoEnzyme
 using ArgCheck: @argcheck
@@ -63,15 +63,6 @@ function implicit_residuals!(r, problem::SquareImplicitProblem, x, y)
 end
 
 task_local_buffers(problem::SquareImplicitProblem) = problem.buffers[]
-
-"""
-$(SIGNATURES)
-
-Provide an initial guess for the inner problem given `x`.
-
-Caller can assume that the dimensions are correct.
-"""
-initial_guess(inner_problem, x) = zeros(get_dimensions(inner_problem).n_y)
 
 """
 A callable for residuals evaluated at `x`.

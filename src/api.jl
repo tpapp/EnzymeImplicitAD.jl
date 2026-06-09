@@ -2,6 +2,10 @@
 ##### the generic API
 #####
 
+public get_dimensions, get_preferred_eltype, is_square, initial_guess, implicit_solve!,
+    implicit_residuals!, task_local_buffers, calculate_∂y∂x, calculate_pushforward!,
+    accumulate_pullback!, API_sanity_checks
+
 """
 $(FUNCTIONNAME)(implicit_problem) → (; n_x, n_y, n_r)
 
@@ -31,7 +35,16 @@ function is_square(implicit_problem)
 end
 
 """
-$(FUNCTIONNAME)(y, implicit_problem, x) → nothing
+$(SIGNATURES)
+
+Provide an initial guess for the problem given `x`.
+
+Caller can assume that the dimensions are correct.
+"""
+initial_guess(problem, x) = zeros(get_dimensions(problem).n_y)
+
+"""
+$(FUNCTIONNAME)(y, implicit_problem, x, y0 = initial_guess(implicit_problem, x)) → nothing
 
 Solve the implicit problem ``g(x, y(x)) = 0`` at `x`, overwriting `y` with ``y(x)`` result.
 
