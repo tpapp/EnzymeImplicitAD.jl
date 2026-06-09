@@ -10,13 +10,15 @@ Return the dimensions of the problem.
 function get_dimensions end
 
 """
-$(FUNCTIONNAME)(implicit_problem) → T
+$(SIGNATURES) → T
 
 Return the preferred element type for a problem. This is used for buffers and interim
 quantities, and should allow for enough precision even with input/output arrays that
 have less.
+
+The default is `Float64`.
 """
-function get_preferred_eltype end
+get_preferred_eltype(implicit_problem) = Float64
 
 """
 $(SIGNATURES)
