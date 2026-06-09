@@ -35,13 +35,9 @@ function square_implicit_problem(implicit_problem;
                                  ∂y∂x_cache_size::Int = 100
                                  )
     @argcheck is_square(implicit_problem)
-    (; n_y) = get_dimensions(implicit_problem)
+    (; n_x, n_r, n_y) = get_dimensions(implicit_problem)
     T = get_preferred_eltype(implicit_problem)
-    By = Vector{T}              # type of buffer
-    B_y() = By(undef, n_y)      # make these buffers
-    TB = @NamedTuple{buffer_y1::By,buffer_y2::By,buffer_y3::By}
-    generate_buffers() = (buffer_y1 = B_y(), buffer_y2 = B_y(), buffer_y3 = B_y())
-    buffers =  OhMyThreads.TaskLocalValue{TB}(generate_buffers)
+    buffers =  OhMyThreads.TaskLocalValue{_make_buffers_type(T)}(() -> _make_buffers(T; n_x, n_y, n_r))
     SquareImplicitProblem{T}(implicit_problem, solver_AD_backend, buffers)
 end
 
@@ -63,8 +59,10 @@ task_local_buffers(problem::SquareImplicitProblem) = problem.buffers[]
 $(SIGNATURES)
 
 Provide an initial guess for the inner problem given `x`.
+
+Caller can assume that the dimensions are correct.
 """
-initial_guess(inner_problem, x) = zero(x)
+initial_guess(inner_problem, x) = zeros(get_dimensions(inner_problem).n_y)
 
 """
 A callable for residuals evaluated at `x`.
@@ -76,7 +74,7 @@ end
 
 function (w::_SolverWrap)(y)
     (; problem, x) = w
-    r = similar(x)
+    r = zeros(get_dimensions(problem).n_r)
     implicit_residuals!(r, problem, x, y)
     r
 end
