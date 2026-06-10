@@ -2,6 +2,10 @@
 ##### the generic API
 #####
 
+public get_dimensions, get_preferred_eltype, is_square, initial_guess, implicit_solve!,
+    implicit_residuals!, task_local_buffers, calculate_∂y∂x, calculate_pushforward!,
+    accumulate_pullback!, API_sanity_checks
+
 """
 $(FUNCTIONNAME)(implicit_problem) → (; n_x, n_y, n_r)
 
@@ -10,13 +14,15 @@ Return the dimensions of the problem.
 function get_dimensions end
 
 """
-$(FUNCTIONNAME)(implicit_problem) → T
+$(SIGNATURES) → T
 
 Return the preferred element type for a problem. This is used for buffers and interim
 quantities, and should allow for enough precision even with input/output arrays that
 have less.
+
+The default is `Float64`.
 """
-function get_preferred_eltype end
+get_preferred_eltype(implicit_problem) = Float64
 
 """
 $(SIGNATURES)
@@ -29,7 +35,16 @@ function is_square(implicit_problem)
 end
 
 """
-$(FUNCTIONNAME)(y, implicit_problem, x) → nothing
+$(SIGNATURES)
+
+Provide an initial guess for the problem given `x`.
+
+Caller can assume that the dimensions are correct.
+"""
+initial_guess(problem, x) = zeros(get_dimensions(problem).n_y)
+
+"""
+$(FUNCTIONNAME)(y, implicit_problem, x, y0 = initial_guess(implicit_problem, x)) → nothing
 
 Solve the implicit problem ``g(x, y(x)) = 0`` at `x`, overwriting `y` with ``y(x)`` result.
 
@@ -96,7 +111,7 @@ Used-defined methods should ensure consistency.
 """
 function get_∂y∂x_type(implicit_problem)
     T = get_preferred_eltype(implicit_problem)
-    L = typeof(lu!(ones(T, 1, 1))) # assumption: lu! is type stable, size does not matter
+    L = typeof(lu!(ones(T::Type, 1, 1))) # assumption: lu! is type stable, size does not matter
     ∂Y∂X{L}
 end
 
@@ -211,9 +226,9 @@ used for debugging but are not part of the API.
 """
 function API_sanity_checks(implicit_problem)
     # dimensions
-    local n_x
-    local n_y
-    local n_r
+    n_x = 0
+    n_y = 0
+    n_r = 0
     terminate = false
     @_sanity_check terminate check_dimensions begin
         dimensions = get_dimensions(implicit_problem)
@@ -238,7 +253,7 @@ function API_sanity_checks(implicit_problem)
     # implicit residuals
     r = fill(T(NaN), n_y)
     @_sanity_check terminate check_implicit_residuals begin
-        implicit_residuals!(r, implicit_problem, x, y)
+        @argcheck implicit_residuals!(r, implicit_problem, x, y) ≡ nothing
         @argcheck sum(abs2, r) ≤ √eps(T) # FIXME this is hardcoded, API?
     end
     # task local buffers

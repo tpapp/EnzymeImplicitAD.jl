@@ -30,6 +30,11 @@ end
     end
 end
 
+function Base.show(io::IO, problem::CacheImplicitProblem)
+    (; min_size, max_size, inner_problem) = problem
+    print(io, "caching [$(min_size),$(max_size)] evaluations $(inner_problem)")
+end
+
 for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y∂x_type]
     @eval ($f)(implicit_problem::CacheImplicitProblem) = ($f)(implicit_problem.inner_problem)
 end
@@ -50,8 +55,7 @@ function cache_implicit_problem(inner_problem::P;
     CacheImplicitProblem(inner_problem, min_size, max_size)
 end
 
-function _cull!(implicit_problem::CacheImplicitProblem)
-    (; min_size, dict) = implicit_problem
+function _cull!(dict, min_size)
     timestamps = [x.timestamp for x in values(dict)]
     sort!(timestamps; rev = true)
     cutoff = timestamps[min_size]
@@ -68,7 +72,7 @@ _ensure_typed_copy(::Type{X}, x::X) where X = copy(x)
 _ensure_typed_copy(::Type{_X}, x::X) where {_X,X} = _X(x)
 
 function implicit_solve!(y2, implicit_problem::CacheImplicitProblem{Y}, x) where Y
-    (; inner_problem, max_size, dict) = implicit_problem
+    (; inner_problem, min_size, max_size, dict) = implicit_problem
     timestamp = time_ns()
     if haskey(dict, x)
         (; y, ∂y∂x) = dict[x]
@@ -78,7 +82,7 @@ function implicit_solve!(y2, implicit_problem::CacheImplicitProblem{Y}, x) where
         y = Vector{get_preferred_eltype(inner_problem)}(undef, n_y)
         implicit_solve!(y, inner_problem, x)
         dict[_ensure_typed_copy(Y, x)] = (; timestamp, y, ∂y∂x = nothing)
-        length(dict) > max_size && _cull!(implicit_problem)
+        length(dict) > max_size && _cull!(dict, min_size)
     end
     copy!(y2, y)
     nothing
@@ -86,7 +90,7 @@ end
 
 function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, _y) where Y
     # NOTE: the y argument is ignored, it is obtained from the cache
-    (; inner_problem, max_size, dict) = implicit_problem
+    (; inner_problem, min_size, max_size, dict) = implicit_problem
     timestamp = time_ns()
     if haskey(dict, x)
         (; y, ∂y∂x) = dict[x]
@@ -98,10 +102,10 @@ function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, _y) wh
         (; n_y) = get_dimensions(inner_problem)
         T = get_preferred_eltype(inner_problem)
         y = Vector{T}(undef, n_y)
-        impicit_solve!(y, inner_problem, x)
+        implicit_solve!(y, inner_problem, x)
         ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
         dict[_ensure_typed_copy(Y, x)] = (; timestamp, y, ∂y∂x)
-        length(dict) > max_size && _cull!(cache)
+        length(dict) > max_size && _cull!(dict, min_size)
     end
     ∂y∂x
 end
