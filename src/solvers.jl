@@ -87,9 +87,11 @@ function implicit_solve!(y, problem::SquareImplicitProblem, x)
                                         AD_backend = solver_AD_backend)
     stopping_criterion = SolverStoppingCriterion(; residual_norm = tol)
     solution = trust_region_solver(root_problem; stopping_criterion)
-    if maximum(abs, solution.residual) > tol
-        @info "residuals" solution.residual
-        error("residuals too big")
+    (; x, residual, last_step_diagnostics, iterations, stop_cause) = solution
+    (; residual_norm) = last_step_diagnostics
+    if stop_cause ≡ TrustRegionMethods.StopCause.MaximumIterations
+        @info "reached maximum iterations" x residual residual_norm iterations stop_cause
+        error("reached maximum iterations")
     end
     y .= solution.x
     nothing
