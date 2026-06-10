@@ -1,6 +1,6 @@
 using EnzymeImplicitAD
 import EnzymeImplicitAD as E
-using LinearAlgebra, Test, Enzyme, EnzymeTestUtils, FiniteDifferences
+using LinearAlgebra, Test, Enzyme, EnzymeTestUtils
 
 ####
 #### utilities for tests
@@ -17,16 +17,6 @@ function implicit_solve(implicit_problem, x)
     E.implicit_solve!(y, implicit_problem, x)
     y
 end
-
-###
-### FDM pushforward and pullback
-###
-
-const FDM = central_fdm(5, 1)
-
-fdm_pushforward(P, x, dx; fdm = FDM) = jvp(fdm, Base.Fix1(implicit_solve, P), (x, dx))
-
-fdm_pullback(P, x, dy; fdm = FDM) = j′vp(fdm, Base.Fix1(implicit_solve, P), dy, x)[1]
 
 ###
 ### linear test problem
@@ -198,7 +188,7 @@ end
         dx = randn(n_x)
         dy = fill(NaN, n_y)
         autodiff(Forward, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-        @test dy ≈ fdm_pushforward(P, x, dx) atol = 1e-8
+        @test dy ≈ analytical_pushforward(P0, dx) atol = 1e-6
 
         # pullback
         dy0 = randn(n_y)
@@ -206,7 +196,7 @@ end
         dx0 = randn(n_x)
         dx = copy(dx0)
         autodiff(Reverse, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-        @test dx ≈ (fdm_pullback(P, x, dy0) .+ dx0) atol = 1e-8
+        @test dx ≈ (analytical_pullback(P0, dy0) .+ dx0) atol = 1e-6
     end
 
     # NOTE cf https://github.com/EnzymeAD/Enzyme.jl/issues/3123

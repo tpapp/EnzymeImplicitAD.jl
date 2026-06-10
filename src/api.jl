@@ -111,7 +111,7 @@ Used-defined methods should ensure consistency.
 """
 function get_∂y∂x_type(implicit_problem)
     T = get_preferred_eltype(implicit_problem)
-    L = typeof(lu!(ones(T, 1, 1))) # assumption: lu! is type stable, size does not matter
+    L = typeof(lu!(ones(T::Type, 1, 1))) # assumption: lu! is type stable, size does not matter
     ∂Y∂X{L}
 end
 
