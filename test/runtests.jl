@@ -221,11 +221,10 @@ end
     # end
 end
 
-## NOTE add JET to the test environment, then uncomment
-# using JET
-# @testset "static analysis with JET.jl" begin
-#     JET.test_package(EnzymeImplicitAD, target_modules=(EnzymeImplicitAD,))
-# end
+@testset "static analysis with JET.jl" begin
+    import JET
+    JET.test_package(EnzymeImplicitAD, target_modules=(EnzymeImplicitAD,))
+end
 
 @testset "QA with Aqua" begin
     import Aqua

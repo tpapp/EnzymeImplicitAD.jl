@@ -226,9 +226,9 @@ used for debugging but are not part of the API.
 """
 function API_sanity_checks(implicit_problem)
     # dimensions
-    local n_x
-    local n_y
-    local n_r
+    n_x = 0
+    n_y = 0
+    n_r = 0
     terminate = false
     @_sanity_check terminate check_dimensions begin
         dimensions = get_dimensions(implicit_problem)
