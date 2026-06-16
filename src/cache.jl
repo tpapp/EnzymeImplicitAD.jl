@@ -29,7 +29,6 @@ end
         dict = ThreadSafeDict{Y,_cache_value_type(Y,∂Y∂X)}()
         y_hits = online_mean(UInt64)
         ∂y∂x_hits = online_mean(UInt64)
-        # {Y,∂Y∂X,typeof(dict),            typeof(inner_problem)}
         new{Y,∂Y∂X,typeof(dict),typeof(inner_problem),
             typeof(y_hits),typeof(∂y∂x_hits)}(inner_problem, min_size, max_size, dict,
                                               y_hits, ∂y∂x_hits)
@@ -62,6 +61,8 @@ $(SIGNATURES)
 Wrap an implicit problem so that `y` and `∂y∂x` are cached.
 
 Specficially, at least `min_size` and at most `max_size` most recently used values are kept.
+
+Supported statistics: those of the inner problem, `average_y_hit`, `average_∂y∂x_hit`.
 """
 function cache_implicit_problem(inner_problem::P;
                                 min_size::Int = 10, max_size = 2 * min_size) where P

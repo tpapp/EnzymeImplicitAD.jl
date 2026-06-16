@@ -41,6 +41,8 @@ Wrap `implicit_problem` that implements at least
 - [`get_dimensions`](@ref),
 
 and ideally also [`initial_guess`](@ref), implementing [`implicit_solve!`](@ref).
+
+Supported statistics: those of the inner problem, `average_iterations`.
 """
 function square_implicit_problem(implicit_problem;
                                  solver_AD_backend = AutoEnzyme(; function_annotation = Duplicated))
