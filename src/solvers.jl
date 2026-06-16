@@ -22,6 +22,7 @@ This structure is not part of the API.
     inner_problem
     solver_AD_backend
     buffers
+    iteration_statistics
 end
 
 function Base.show(io::IO, problem::SquareImplicitProblem)
@@ -40,6 +41,8 @@ Wrap `implicit_problem` that implements at least
 - [`get_dimensions`](@ref),
 
 and ideally also [`initial_guess`](@ref), implementing [`implicit_solve!`](@ref).
+
+Supported statistics: those of the inner problem, `average_iterations`.
 """
 function square_implicit_problem(implicit_problem;
                                  solver_AD_backend = AutoEnzyme(; function_annotation = Duplicated))
@@ -47,10 +50,16 @@ function square_implicit_problem(implicit_problem;
     (; n_x, n_r, n_y) = get_dimensions(implicit_problem)
     T = get_preferred_eltype(implicit_problem)
     buffers =  OhMyThreads.TaskLocalValue{_make_buffers_type(T)}(() -> _make_buffers(T; n_x, n_y, n_r))
-    SquareImplicitProblem{T}(implicit_problem, solver_AD_backend, buffers)
+    SquareImplicitProblem{T}(implicit_problem, solver_AD_backend, buffers, online_mean(Int64))
 end
 
 get_dimensions(problem::SquareImplicitProblem) = get_dimensions(problem.inner_problem)
+
+function get_statistics(problem::SquareImplicitProblem)
+    (; inner_problem, iteration_statistics) = problem
+    merge_disjoint(get_statistics(inner_problem),
+                   (average_iterations = get_mean(iteration_statistics),))
+end
 
 function get_preferred_eltype(problem::SquareImplicitProblem)
     get_preferred_eltype(problem.inner_problem)
@@ -80,7 +89,7 @@ function (w::_SolverWrap)(y)
 end
 
 function implicit_solve!(y, problem::SquareImplicitProblem, x)
-    (; inner_problem, solver_AD_backend) = problem
+    (; inner_problem, solver_AD_backend, iteration_statistics) = problem
     y0 = initial_guess(inner_problem, x)
     tol = √eps()
     root_problem = trust_region_problem(_SolverWrap(inner_problem, x), y0;
@@ -88,6 +97,7 @@ function implicit_solve!(y, problem::SquareImplicitProblem, x)
     stopping_criterion = SolverStoppingCriterion(; residual_norm = tol)
     solution = trust_region_solver(root_problem; stopping_criterion)
     (; x, residual, last_step_diagnostics, iterations, stop_cause) = solution
+    update!(iteration_statistics, iterations)
     (; residual_norm) = last_step_diagnostics
     if stop_cause ≡ TrustRegionMethods.StopCause.MaximumIterations
         @info "reached maximum iterations" x residual residual_norm iterations stop_cause
