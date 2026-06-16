@@ -130,3 +130,18 @@ function update!(om::Lockable{<:OnlineMean{T}}, x) where T
 end
 
 get_mean(om::Lockable{<:OnlineMean}) = @lock om om[].sum / om[].count
+
+"""
+$(SIGNATURES)
+
+Merge two `NamedTuple`s, throw an error if they have names in common.
+"""
+@generated function merge_disjoint(a::NamedTuple{A}, b::NamedTuple{B}) where {A,B}
+    AB = intersect(A, B)
+    if isempty(AB)
+        :(merge(a, b))
+    else
+        msg = "found common names $(join(AB, ", "))"
+        :(throw(ArgumentError($msg)))
+    end
+end

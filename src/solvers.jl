@@ -55,7 +55,8 @@ get_dimensions(problem::SquareImplicitProblem) = get_dimensions(problem.inner_pr
 
 function get_statistics(problem::SquareImplicitProblem)
     (; inner_problem, iteration_statistics) = problem
-    merge(get_statistics(inner_problem), (average_iterations = get_mean(iteration_statistics),))
+    merge_disjoint(get_statistics(inner_problem),
+                   (average_iterations = get_mean(iteration_statistics),))
 end
 
 function get_preferred_eltype(problem::SquareImplicitProblem)

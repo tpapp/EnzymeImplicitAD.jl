@@ -175,6 +175,10 @@ $(SIGNATURES) → statistics::NamedTuple
 
 Return various statistics that are accumulated during calls, that may help the user
 evaluate and tune algorithms.
+
+!!! implementation note
+    Wrapper types should merge statistics of the parent in most cases, checking that
+    they don't overwrite. See [`merge_disjoint`](@ref).
 """
 get_statistics(problem) = (;)
 
@@ -247,7 +251,7 @@ function API_sanity_checks(implicit_problem)
         @assert n_r isa Int && n_r > 0
     end
     # eltype
-    local T
+    T = Union{}
     @_sanity_check terminate check_eltype begin
         T = get_preferred_eltype(implicit_problem)
         @argcheck T <: AbstractFloat

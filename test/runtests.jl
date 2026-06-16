@@ -6,22 +6,6 @@ using LinearAlgebra, Test, Enzyme
 #### utilities for tests
 ####
 
-###
-### functional interface
-###
-
-function implicit_solve(implicit_problem, x)
-    T = E.get_preferred_eltype(implicit_problem)
-    (; n_y) = E.get_dimensions(implicit_problem)
-    y = Vector{T}(undef, n_y)
-    E.implicit_solve!(y, implicit_problem, x)
-    y
-end
-
-###
-### linear test problem
-###
-
 """
 A linear test problem ``A⋅x + B⋅y = 0``, used for testing.
 
@@ -191,6 +175,37 @@ end
         @test maximum(abs, r) ≤ 1e-10
 
         test_Enzyme_AD(P, P0)
+    end
+
+    @testset "cache statistics" begin
+        P0 = LinearProblem(; n_x, n_y)
+        P = E.cache_implicit_problem(P0; min_size = K, max_size = 2 * K)
+        x = randn(n_x)
+        y = fill(NaN, n_y)
+        M = 10
+
+        # just the value
+        for _ in 1:M
+            E.implicit_solve!(y, P, x)
+        end
+        s = E.get_statistics(P)
+        @test s.average_y_hit == (M - 1) / M
+        @test isnan(s.average_∂y∂x_hit)
+
+        # just the derivative
+        for _ in 1:M
+            E.calculate_∂y∂x(P, x, y)
+        end
+        s = E.get_statistics(P)
+        @test s.average_y_hit == M / (M + 1) # access internally once more
+        @test s.average_∂y∂x_hit == (M - 1) / M
+
+        # another value
+        x .+= 1
+        E.calculate_∂y∂x(P, x, y)
+        s = E.get_statistics(P)
+        @test s.average_y_hit == M / (M + 2) # one extra miss
+        @test s.average_∂y∂x_hit == (M - 1) / (M + 1) # one extra miss
     end
 end
 
