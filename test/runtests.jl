@@ -1,6 +1,6 @@
 using EnzymeImplicitAD
 import EnzymeImplicitAD as E
-using LinearAlgebra, Test, Enzyme, EnzymeTestUtils
+using LinearAlgebra, Test, Enzyme
 
 ####
 #### utilities for tests
@@ -36,6 +36,11 @@ struct MatrixProblem{S,TA<:AbstractMatrix,TB<:AbstractMatrix,TL}
         luB = lu(B)
         new{solver,typeof(A),typeof(B),typeof(luB)}(A, B, lu(B))
     end
+end
+
+function Base.show(io::IO, problem::MatrixProblem)
+    (; n_x, n_y) = E.get_dimensions(problem)
+    print(io, "« $(n_y) × $(n_x) linear problem »")
 end
 
 """
@@ -76,6 +81,45 @@ analytical_pullback(P::MatrixProblem, dy) = (P.luB \ P.A)' * (.-dy)
 
 @test E.API_sanity_checks(MatrixProblem(; n_x = 3, n_y = 4)).all_ok
 
+"""
+Test forward and reverse AD with Enzyme for `implicit_problem`.
+
+`analytical_problem` should yield derivatives to compare to, using `analytical_pullback`
+and `analytical_pushforward`.
+"""
+function test_Enzyme_AD(implicit_problem, analytical_problem;
+                        testset_name = "AD tests for $(repr(implicit_problem))",
+                        atol = 1e-6)
+    (; n_x, n_y, n_r) = E.get_dimensions(implicit_problem)
+    @testset "$(testset_name)" begin
+        r = zeros(n_r)
+        @testset "forward" begin
+            x = randn(n_x)
+            y = fill(NaN, n_y)
+            dx = randn(n_x)
+            dy = fill(NaN, n_y)
+            expected_dy = analytical_pushforward(analytical_problem, dx)
+            autodiff(Forward, E.implicit_solve!, Duplicated(y, dy), Const(implicit_problem),
+                     Duplicated(x, dx))
+            @test dy ≈ expected_dy atol = atol
+            E.implicit_residuals!(r, implicit_problem, x, y)
+            @test sum(abs2, r) ≤ atol
+        end
+        @testset "reverse" begin
+            x = randn(n_x)
+            y = randn(n_y)
+            dx = randn(n_x)
+            dy = randn(n_y)
+            expected_dx = dx .+ analytical_pullback(analytical_problem, dy)
+            autodiff(Reverse, E.implicit_solve!, Duplicated(y, dy), Const(implicit_problem),
+                     Duplicated(x, dx))
+            @test dx ≈ expected_dx atol = atol
+            E.implicit_residuals!(r, implicit_problem, x, y)
+            @test sum(abs2, r) ≤ atol
+        end
+    end
+end
+
 ####
 #### internals
 ####
@@ -104,42 +148,9 @@ analytical_pullback(P::MatrixProblem, dy) = (P.luB \ P.A)' * (.-dy)
     @test vJ ≈ A' * v
 end
 
-@testset "forward mode consistency test" begin
-    n_x, n_y = 3, 4
-    P = MatrixProblem(; n_x, n_y)
-    x = randn(n_x)
-    dx = randn(n_x)
-    y = zeros(n_y)
-    dy = zeros(n_y)
-    autodiff(Forward, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-    @test dy ≈ analytical_pushforward(P, dx)
-end
-
-@testset "reverse mode consistency test" begin
-    n_x, n_y = 3, 2
-    P = MatrixProblem(; n_y, n_x)
-    x = randn(n_x)
-    dx = zeros(n_x)
-    y = fill(NaN, n_y)
-    dy = randn(n_y)
-    expected_dx = analytical_pullback(P, dy)
-    autodiff(Reverse, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-    @test expected_dx ≈ dx
-end
-
-@testset "testing with EnzymeTestUtils" begin
-    n_x, n_y = 3, 4
-    P = MatrixProblem(; n_x, n_y)
-    x = randn(n_x)
-    y = zeros(n_y)
-    @testset "test_forward" begin
-        @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)
-            test_forward(E.implicit_solve!, Const, (y, Ty), P, (x, Tx))
-        end
-    end
-    @testset "test_reverse" begin
-        test_reverse(E.implicit_solve!, Const, (y, Duplicated), P, (x, Duplicated))
-    end
+@testset "linear problem AD test" begin
+    P = MatrixProblem(; n_x = 3, n_y = 4)
+    test_Enzyme_AD(P, P)
 end
 
 @testset "implicit solver" begin
@@ -159,14 +170,7 @@ end
     (; average_iterations) = E.get_statistics(P)
     @test isfinite(average_iterations) && average_iterations > 0
 
-    @testset "test_forward" begin
-        @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)
-            test_forward(E.implicit_solve!, Const, (y, Ty), P, (x, Tx))
-        end
-    end
-    @testset "test_reverse" begin
-        test_reverse(E.implicit_solve!, Const, (y, Duplicated), P, (x, Duplicated))
-    end
+    test_Enzyme_AD(P, P0)
 end
 
 @testset "cached solver" begin
@@ -186,31 +190,8 @@ end
         E.implicit_residuals!(r, P, x, y)
         @test maximum(abs, r) ≤ 1e-10
 
-        # pushforward
-        dx = randn(n_x)
-        dy = fill(NaN, n_y)
-        autodiff(Forward, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-        @test dy ≈ analytical_pushforward(P0, dx) atol = 1e-6
-
-        # pullback
-        dy0 = randn(n_y)
-        dy = copy(dy0)
-        dx0 = randn(n_x)
-        dx = copy(dx0)
-        autodiff(Reverse, E.implicit_solve!, Duplicated(y, dy), Const(P), Duplicated(x, dx))
-        @test dx ≈ (analytical_pullback(P0, dy0) .+ dx0) atol = 1e-6
+        test_Enzyme_AD(P, P0)
     end
-
-    # NOTE cf https://github.com/EnzymeAD/Enzyme.jl/issues/3123
-    # disabled for now, use manual testing above
-    # @testset "test_forward" begin
-    #     @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)
-    #         test_forward(E.implicit_solve!, Const, (y, Ty), P, (x, Tx))
-    #     end
-    # end
-    # @testset "test_reverse" begin
-    #     test_reverse(E.implicit_solve!, Const, (y, Duplicated), P, (x, Duplicated))
-    # end
 end
 
 @testset "static analysis with JET.jl" begin
