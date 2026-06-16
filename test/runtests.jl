@@ -28,17 +28,17 @@ A linear test problem ``A⋅x + B⋅y = 0``, used for testing.
 The `solver::Bool` argument (`S` parameter) determines whether [`implicit_solve!`](@ref)
 is implemented.
 """
-struct MatrixProblem{S,TA<:AbstractMatrix,TB<:AbstractMatrix,TL}
+struct LinearProblem{S,TA<:AbstractMatrix,TB<:AbstractMatrix,TL}
     A::TA
     B::TB
     luB::TL
-    function MatrixProblem(A::AbstractMatrix, B::AbstractMatrix; solver::Bool = true)
+    function LinearProblem(A::AbstractMatrix, B::AbstractMatrix; solver::Bool = true)
         luB = lu(B)
         new{solver,typeof(A),typeof(B),typeof(luB)}(A, B, lu(B))
     end
 end
 
-function Base.show(io::IO, problem::MatrixProblem)
+function Base.show(io::IO, problem::LinearProblem)
     (; n_x, n_y) = E.get_dimensions(problem)
     print(io, "« $(n_y) × $(n_x) linear problem »")
 end
@@ -48,38 +48,38 @@ Make a random (square, `n_r = n_y`) matrix problem with the given dimensions.
 
 When `solver = true` (the default), a solver method is implemented, otherwise it errors.
 """
-function MatrixProblem(; n_y::Int, n_x::Int = n_y, solver::Bool = true)
+function LinearProblem(; n_y::Int, n_x::Int = n_y, solver::Bool = true)
     @assert n_x > 0
     @assert n_y > 0
-    MatrixProblem(randn(n_y, n_x), randn(n_y, n_y); solver)
+    LinearProblem(randn(n_y, n_x), randn(n_y, n_y); solver)
 end
 
-function E.get_dimensions(P::MatrixProblem)
+function E.get_dimensions(P::LinearProblem)
     n_y, n_x = size(P.A)
     (; n_x, n_y, n_r = n_y)
 end
 
-E.get_preferred_eltype(P::MatrixProblem) = eltype(P.A)
+E.get_preferred_eltype(P::LinearProblem) = eltype(P.A)
 
-function E.implicit_solve!(y::AbstractVector{T}, P::MatrixProblem{true}, x) where T
+function E.implicit_solve!(y::AbstractVector{T}, P::LinearProblem{true}, x) where T
     (; A, luB) = P
     mul!(y, A, x, -one(T), zero(T))
     ldiv!(luB, y)
     nothing
 end
 
-function E.implicit_residuals!(r::AbstractVector{T}, P::MatrixProblem, x, y) where T
+function E.implicit_residuals!(r::AbstractVector{T}, P::LinearProblem, x, y) where T
     (; A, B) = P
     mul!(r, A, x)
     mul!(r, B, y, one(T), one(T))
     nothing
 end
 
-analytical_pushforward(P::MatrixProblem, dx) = -(P.luB \ (P.A * dx))
+analytical_pushforward(P::LinearProblem, dx) = -(P.luB \ (P.A * dx))
 
-analytical_pullback(P::MatrixProblem, dy) = (P.luB \ P.A)' * (.-dy)
+analytical_pullback(P::LinearProblem, dy) = (P.luB \ P.A)' * (.-dy)
 
-@test E.API_sanity_checks(MatrixProblem(; n_x = 3, n_y = 4)).all_ok
+@test E.API_sanity_checks(LinearProblem(; n_x = 3, n_y = 4)).all_ok
 
 """
 Test forward and reverse AD with Enzyme for `implicit_problem`.
@@ -126,7 +126,7 @@ end
 
 @testset "∂g∂y, ∂g∂x_v, v_∂g∂x extraction" begin
     n_x, n_y = 3, 4
-    (; A, B) = P = MatrixProblem(; n_y, n_x)
+    (; A, B) = P = LinearProblem(; n_y, n_x)
     x = randn(n_x)
     y = randn(n_y)
     dy = similar(y)
@@ -149,13 +149,13 @@ end
 end
 
 @testset "linear problem AD test" begin
-    P = MatrixProblem(; n_x = 3, n_y = 4)
+    P = LinearProblem(; n_x = 3, n_y = 4)
     test_Enzyme_AD(P, P)
 end
 
 @testset "implicit solver" begin
     n_x, n_y = 4, 5
-    P0 = MatrixProblem(; n_y, n_x, solver = false)
+    P0 = LinearProblem(; n_y, n_x, solver = false)
     P = E.square_implicit_problem(P0)
 
     @test E.API_sanity_checks(P).all_ok
@@ -176,7 +176,7 @@ end
 @testset "cached solver" begin
     n_x, n_y = 4, 5
     K = 10
-    P0 = MatrixProblem(; n_x, n_y)
+    P0 = LinearProblem(; n_x, n_y)
     P = E.cache_implicit_problem(P0; min_size = K, max_size = 2 * K)
 
     @test E.API_sanity_checks(P).all_ok
