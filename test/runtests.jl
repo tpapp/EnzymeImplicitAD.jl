@@ -156,6 +156,8 @@ end
     # check solution via rootfinder
     E.implicit_residuals!(r, P, x, y)
     @test maximum(abs, r) ≤ 1e-10
+    (; average_iterations) = E.get_statistics(P)
+    @test isfinite(average_iterations) && average_iterations > 0
 
     @testset "test_forward" begin
         @testset for Tx in (Const, Duplicated,), Ty in (Const, Duplicated)

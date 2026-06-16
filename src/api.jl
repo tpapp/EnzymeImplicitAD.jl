@@ -4,7 +4,7 @@
 
 public get_dimensions, get_preferred_eltype, is_square, initial_guess, implicit_solve!,
     implicit_residuals!, task_local_buffers, calculate_∂y∂x, calculate_pushforward!,
-    accumulate_pullback!, API_sanity_checks
+    accumulate_pullback!, get_statistics, API_sanity_checks
 
 """
 $(FUNCTIONNAME)(implicit_problem) → (; n_x, n_y, n_r)
@@ -170,6 +170,14 @@ function accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x::∂Y∂X, dy
     nothing
 end
 
+"""
+$(SIGNATURES) → statistics::NamedTuple
+
+Return various statistics that are accumulated during calls, that may help the user
+evaluate and tune algorithms.
+"""
+get_statistics(problem) = (;)
+
 ####
 #### sanity checks
 ####
@@ -187,6 +195,7 @@ Base.@kwdef struct SanityChecks
     check_implicit_residuals
     check_task_local_buffers
     check_∂y∂x
+    check_statistics
 end
 
 """
@@ -286,10 +295,15 @@ function API_sanity_checks(implicit_problem)
         accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x, dy)
         @argcheck all(isfinite, dx)
     end
+    # statistics
+    @_sanity_check terminate check_statistics begin
+        @argcheck get_statistics(implicit_problem) isa NamedTuple
+    end
     # collate and return
     @label done
     SanityChecks(; check_dimensions, check_eltype, check_implicit_solve,
-                 check_implicit_residuals, check_task_local_buffers, check_∂y∂x)
+                 check_implicit_residuals, check_task_local_buffers, check_∂y∂x,
+                 check_statistics)
 end
 
 function Base.getproperty(checks::SanityChecks, key::Symbol)

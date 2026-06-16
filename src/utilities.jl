@@ -98,3 +98,35 @@ function _make_buffers_type(T)
     V = Vector{T}
     @NamedTuple{buffer_y::V,buffer_x::V,buffer_r::V,buffer_r2::V}
 end
+
+####
+#### for statistics
+####
+
+"""
+Implement a thread-safe online mean. Use [`online_mean`](@ref) as the entry point.
+"""
+mutable struct OnlineMean{T}
+    count::UInt64
+    sum::T
+    OnlineMean{T}() where T = new(0, zero(T))
+end
+
+"""
+$(SIGNATURES)
+
+Return a thread-safe accumulator that supportes [`update!`](@ref) and [`get_mean`](@ref).
+The sum is accumulated in a value of type `T`.
+"""
+online_mean(::Type{T}) where T = Lockable(OnlineMean{T}())
+
+function update!(om::Lockable{<:OnlineMean{T}}, x) where T
+    Tx = T(x)
+    @lock om begin
+        om[].count += 1
+        om[].sum += T(x)
+    end
+    nothing
+end
+
+get_mean(om::Lockable{<:OnlineMean}) = @lock om om[].sum / om[].count

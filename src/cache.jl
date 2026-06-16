@@ -32,11 +32,15 @@ end
 
 function Base.show(io::IO, problem::CacheImplicitProblem)
     (; min_size, max_size, inner_problem) = problem
-    print(io, "caching [$(min_size),$(max_size)] evaluations $(inner_problem)")
+    print(io, "caching [$(min_size),$(max_size)] evaluations of $(inner_problem)")
 end
 
 for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y∂x_type]
     @eval ($f)(implicit_problem::CacheImplicitProblem) = ($f)(implicit_problem.inner_problem)
+end
+
+function get_statistics(problem::CacheImplicitProblem)
+    get_statistics(problem.inner_problem)
 end
 
 function implicit_residuals!(r, implicit_problem::CacheImplicitProblem, x, y)
