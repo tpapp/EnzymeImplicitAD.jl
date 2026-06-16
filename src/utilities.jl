@@ -136,10 +136,11 @@ $(SIGNATURES)
 
 Merge two `NamedTuple`s, throw an error if they have names in common.
 """
-function merge_disjoint(a::NamedTuple{A}, b::NamedTuple{B}) where {A,B}
+function merge_disjoint(a::NamedTuple, b::NamedTuple)
     ab = merge(a, b)
     if length(a) + length(b) ≠ length(ab)
-        throw(ArgumentError("found common names $(join(intersect(names(a), names(b)), \", \"))"))
+        throw(ArgumentError("found common keys " *
+            join(intersect(keys(a), keys(b)), ", ")))
     end
     ab
 end
