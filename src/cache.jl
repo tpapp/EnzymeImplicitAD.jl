@@ -117,20 +117,20 @@ function _new_cache_entry(implicit_problem::CacheImplicitProblem{Y,∂Y∂X},
     entry
 end
 
+_entry_or_nothing(lockable_dict, x) =  lock(dict -> get(dict, x, nothing), lockable_dict)
+
 function _update_timestamp(lockable_dict, entry, timestamp)
     lock(_ -> entry.timestamp = timestamp, lockable_dict)
 end
 
 function _add_∂y∂x(lockable_dict, entry, ∂y∂x)
-    lock(lockable_dict) do _
-        entry.∂y∂x = ∂y∂x
-    end
+    lock(_ -> entry.∂y∂x = ∂y∂x, lockable_dict)
 end
 
 function implicit_solve!(y, implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, x) where {Y,∂Y∂X}
     (; inner_problem, lockable_dict, y_hits) = implicit_problem
     timestamp = time_ns()
-    entry = lock(dict -> get(dict, x, nothing), lockable_dict)
+    entry = _entry_or_nothing(lockable_dict, x)
     if entry ≡ nothing
         (; n_y) = get_dimensions(inner_problem)
         internal_y = Vector{get_preferred_eltype(inner_problem)}(undef, n_y)
@@ -149,11 +149,11 @@ end
 function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, x, y) where {Y,∂Y∂X}
     (; inner_problem, lockable_dict, ∂y∂x_hits) = implicit_problem
     timestamp = time_ns()
-    entry = lock(dict -> get(dict, x, nothing), lockable_dict)
+    entry = _entry_or_nothing(lockable_dict, x)
     if entry ≡ nothing
-        internal_y = _ensure_typed_copy(Y, y)
         ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
-        entry = _new_cache_entry(implicit_problem, x, timestamp, y, ∂y∂x)
+        entry = _new_cache_entry(implicit_problem, x, timestamp,
+                                 _ensure_typed_copy(Y, y), ∂y∂x)
         update!(∂y∂x_hits, false)
     else
         (; ∂y∂x) = entry
