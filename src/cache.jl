@@ -2,42 +2,54 @@
 ##### wrapper to cache y and ∂y∂x
 #####
 
-using ThreadSafeDicts: ThreadSafeDict
-
 """
-$(SIGNATURES)
+A cached `y` and `∂y∂x` result, with the `timestamp` for the latest access.
 
-Helper function for consistent value types in dictionaries.
+All values should be inside a dictionary, with an associated lock. Mutable fields may
+only be modified when that lock is acquired. See accessor functions below.
 """
-@inline function _cache_value_type(Y,∂Y∂X)
-    @NamedTuple{timestamp::Int64,y::Y,∂y∂x::Union{Nothing,∂Y∂X}}
+mutable struct CacheEntry{Y,∂Y∂X}
+    "timestamp"
+    timestamp::UInt64
+    "the cached solution"
+    const y::Y
+    "the cached derivative"
+    ∂y∂x::Union{Nothing,∂Y∂X}
 end
 
-# NOTE: parametrization assumes `x` and `y` values have the same type
-@concrete struct CacheImplicitProblem{Y,∂Y∂X,D<:AbstractDict{Y,_cache_value_type(Y,∂Y∂X)}}
+# NOTE: parametrization assumes `x` and `y` values have the same type `Y`
+@concrete struct CacheImplicitProblem{Y,∂Y∂X}
+    "the inner (parent) problem"
     inner_problem
+    "target size after culling the cache"
     min_size::Int
+    "maximum size for cache"
     max_size::Int
-    dict::D
+    "dictionary wrapped in `Lockable`. No `x` or `y` values may be leaked outside."
+    lockable_dict
+    "statistics for finding `y` values in cache"
     y_hits
+    "statistics for finding `∂y∂x` values in cache"
     ∂y∂x_hits
     function CacheImplicitProblem(inner_problem, min_size::Int, max_size::Int)
         @argcheck 0 < min_size < max_size
         T = get_preferred_eltype(inner_problem)
         Y = Vector{T}
         ∂Y∂X = get_∂y∂x_type(inner_problem)
-        dict = ThreadSafeDict{Y,_cache_value_type(Y,∂Y∂X)}()
+        lockable_dict = Lockable(Dict{Y,CacheEntry{Y,∂Y∂X}}())
         y_hits = online_mean(UInt64)
         ∂y∂x_hits = online_mean(UInt64)
-        new{Y,∂Y∂X,typeof(dict),typeof(inner_problem),
-            typeof(y_hits),typeof(∂y∂x_hits)}(inner_problem, min_size, max_size, dict,
-                                              y_hits, ∂y∂x_hits)
+        new{Y,∂Y∂X,typeof(inner_problem),typeof(lockable_dict),
+            typeof(y_hits),typeof(∂y∂x_hits)}(inner_problem, min_size, max_size,
+                                              lockable_dict, y_hits, ∂y∂x_hits)
     end
 end
 
 function Base.show(io::IO, problem::CacheImplicitProblem)
-    (; min_size, max_size, inner_problem) = problem
-    print(io, "caching [$(min_size),$(max_size)] evaluations of $(inner_problem)")
+    (; min_size, max_size, inner_problem, y_hits, ∂y∂x_hits) = problem
+    print(io, "caching [$(min_size),$(max_size)] evaluations of $(inner_problem)",
+          "\n    y hits: $(y_hits)",
+          "\n    ∂y∂x hits: $(∂y∂x_hits)")
 end
 
 for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y∂x_type]
@@ -69,9 +81,16 @@ function cache_implicit_problem(inner_problem::P;
     CacheImplicitProblem(inner_problem, min_size, max_size)
 end
 
-function _cull!(dict, min_size)
+"""
+$(SIGNATURES)
+
+Cull dictionary to `min_size`, keeping the last `timestamp`s.
+
+Locking is assumed to be handled by caller.
+"""
+function _cull!(dict::AbstractDict, min_size::Int)
     timestamps = [x.timestamp for x in values(dict)]
-    sort!(timestamps; rev = true)
+    partialsort!(timestamps, 1:min_size; rev = true)
     cutoff = timestamps[min_size]
     for (k, v) in pairs(dict)
         if v.timestamp < cutoff
@@ -85,51 +104,67 @@ _ensure_typed_copy(::Type{X}, x::X) where X = copy(x)
 
 _ensure_typed_copy(::Type{_X}, x::X) where {_X,X} = _X(x)
 
-function implicit_solve!(y2, implicit_problem::CacheImplicitProblem{Y}, x) where Y
-    (; inner_problem, min_size, max_size, dict, y_hits) = implicit_problem
-    timestamp = time_ns()
-    if haskey(dict, x)
-        (; y, ∂y∂x) = dict[x]
-        dict[x] = (; timestamp, y, ∂y∂x)
-        y_hit = true
-    else
-        (; n_y) = get_dimensions(inner_problem)
-        y = Vector{get_preferred_eltype(inner_problem)}(undef, n_y)
-        implicit_solve!(y, inner_problem, x)
-        dict[_ensure_typed_copy(Y, x)] = (; timestamp, y, ∂y∂x = nothing)
+function _new_cache_entry(implicit_problem::CacheImplicitProblem{Y,∂Y∂X},
+                          x, timestamp::UInt64, internal_y::Y,
+                          ∂y∂x::Union{Nothing,∂Y∂X} = nothing) where {Y,∂Y∂X}
+    (; lockable_dict, min_size, max_size) = implicit_problem
+    internal_x = _ensure_typed_copy(Y, x)
+    entry = CacheEntry{Y,∂Y∂X}(timestamp, internal_y, ∂y∂x)
+    lock(lockable_dict) do dict
+        dict[internal_x] = entry
         length(dict) > max_size && _cull!(dict, min_size)
-        y_hit = false
     end
-    update!(y_hits, y_hit)
-    copy!(y2, y)
+    entry
+end
+
+_entry_or_nothing(lockable_dict, x) =  lock(dict -> get(dict, x, nothing), lockable_dict)
+
+function _update_timestamp(lockable_dict, entry, timestamp)
+    lock(_ -> entry.timestamp = timestamp, lockable_dict)
+end
+
+function _add_∂y∂x(lockable_dict, entry, ∂y∂x)
+    lock(_ -> entry.∂y∂x = ∂y∂x, lockable_dict)
+end
+
+function implicit_solve!(y, implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, x) where {Y,∂Y∂X}
+    (; inner_problem, lockable_dict, y_hits) = implicit_problem
+    timestamp = time_ns()
+    entry = _entry_or_nothing(lockable_dict, x)
+    if entry ≡ nothing
+        (; n_y) = get_dimensions(inner_problem)
+        internal_y = Vector{get_preferred_eltype(inner_problem)}(undef, n_y)
+        implicit_solve!(internal_y, inner_problem, x)
+        _new_cache_entry(implicit_problem, x, timestamp, internal_y)
+        copy!(y, internal_y)
+        update!(y_hits, false)
+    else
+        copy!(y, entry.y)       # no lock needed as `y` is constant within `entry`
+        _update_timestamp(lockable_dict, entry, timestamp)
+        update!(y_hits, true)
+    end
     nothing
 end
 
-function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, _y) where Y
-    # NOTE: the y argument is ignored, it is obtained from the cache
-    (; inner_problem, min_size, max_size, dict, y_hits, ∂y∂x_hits) = implicit_problem
+function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, x, y) where {Y,∂Y∂X}
+    (; inner_problem, lockable_dict, ∂y∂x_hits) = implicit_problem
     timestamp = time_ns()
-    if haskey(dict, x)
-        (; y, ∂y∂x) = dict[x]
-        if ∂y∂x ≡ nothing
-            ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
-            update!(y_hits, true)
-            ∂y∂x_hit = false
-        else
-            ∂y∂x_hit = true
-        end
-        dict[x] = (; timestamp, y, ∂y∂x)
-        update!(∂y∂x_hits, ∂y∂x_hit)
-    else
-        (; n_y) = get_dimensions(inner_problem)
-        T = get_preferred_eltype(inner_problem)
-        y = Vector{T}(undef, n_y)
-        implicit_solve!(y, inner_problem, x)
+    entry = _entry_or_nothing(lockable_dict, x)
+    if entry ≡ nothing
         ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
-        dict[_ensure_typed_copy(Y, x)] = (; timestamp, y, ∂y∂x)
-        length(dict) > max_size && _cull!(dict, min_size)
-        update!(y_hits, false)
+        entry = _new_cache_entry(implicit_problem, x, timestamp,
+                                 _ensure_typed_copy(Y, y), ∂y∂x)
         update!(∂y∂x_hits, false)
+    else
+        (; ∂y∂x) = entry
+        _update_timestamp(lockable_dict, entry, timestamp)
+        if ∂y∂x ≡ nothing # add ∂y∂x
+            ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
+            _add_∂y∂x(lockable_dict, entry, ∂y∂x)
+            update!(∂y∂x_hits, false)
+        else
+            update!(∂y∂x_hits, true)
+        end
     end
     ∂y∂x
 end
