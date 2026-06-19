@@ -2,23 +2,34 @@
 ##### wrapper to cache y and ∂y∂x
 #####
 
-"A cached `y` and `∂y∂x` result, with the timestamp for the latest access."
+"""
+A cached `y` and `∂y∂x` result, with the `timestamp` for the latest access.
+
+All values should be inside a dictionary, with an associated lock. Mutable fields may
+only be modified when that lock is acquired. See accessor functions below.
+"""
 mutable struct CacheEntry{Y,∂Y∂X}
-    "the timestamp"
+    "timestamp"
     timestamp::UInt64
     "the cached solution"
-    y::Y
+    const y::Y
     "the cached derivative"
     ∂y∂x::Union{Nothing,∂Y∂X}
 end
 
 # NOTE: parametrization assumes `x` and `y` values have the same type `Y`
 @concrete struct CacheImplicitProblem{Y,∂Y∂X}
+    "the inner (parent) problem"
     inner_problem
+    "target size after culling the cache"
     min_size::Int
+    "maximum size for cache"
     max_size::Int
+    "dictionary wrapped in `Lockable`. No `x` or `y` values may be leaked outside."
     lockable_dict
+    "statistics for finding `y` values in cache"
     y_hits
+    "statistics for finding `∂y∂x` values in cache"
     ∂y∂x_hits
     function CacheImplicitProblem(inner_problem, min_size::Int, max_size::Int)
         @argcheck 0 < min_size < max_size
@@ -128,7 +139,7 @@ function implicit_solve!(y, implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, 
         copy!(y, internal_y)
         update!(y_hits, false)
     else
-        copy!(y, entry.y)
+        copy!(y, entry.y)       # no lock needed as `y` is constant within `entry`
         _update_timestamp(lockable_dict, entry, timestamp)
         update!(y_hits, true)
     end
