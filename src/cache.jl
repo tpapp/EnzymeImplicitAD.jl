@@ -69,6 +69,11 @@ function cache_implicit_problem(inner_problem::P;
     CacheImplicitProblem(inner_problem, min_size, max_size)
 end
 
+"""
+$(SIGNATURES)
+
+Cull dictionary to `min_size`, keeping the last `timestamp`s.
+"""
 function _cull!(dict, min_size)
     timestamps = [x.timestamp for x in values(dict)]
     sort!(timestamps; rev = true)
@@ -111,8 +116,8 @@ function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, y) whe
     timestamp = time_ns()
     v = get(dict, x, nothing)
     if v ≡ nothing
-        # no cached results, so save a copy of y
         ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
+        # no cached results, so save a copy of y
         dict[_ensure_typed_copy(Y, x)] = (; timestamp, y = _ensure_typed_copy(Y, y), ∂y∂x)
         length(dict) > max_size && _cull!(dict, min_size)
         update!(y_hits, false)
@@ -120,9 +125,10 @@ function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, y) whe
     elseif v.∂y∂x ≡ nothing
         # cached y exists, add ∂y∂x
         ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
-        dict[x] = (; timestamp, y, ∂y∂x)
+        dict[x] = (; timestamp, v.y, ∂y∂x) # important: use our own y
         update!(∂y∂x_hits, false)
     else
+        dict[x] = (; timestamp, v.y, v.∂y∂x) # just update timestamp
         update!(∂y∂x_hits, true)
         (; ∂y∂x) = v
     end
