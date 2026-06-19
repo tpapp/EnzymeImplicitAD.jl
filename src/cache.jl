@@ -13,7 +13,7 @@ Helper function for consistent value types in dictionaries.
     @NamedTuple{timestamp::Int64,y::Y,∂y∂x::Union{Nothing,∂Y∂X}}
 end
 
-# NOTE: parametrization assumes `x` and `y` values have the same type
+# NOTE: parametrization assumes `x` and `y` values have the same type `Y`
 @concrete struct CacheImplicitProblem{Y,∂Y∂X,D<:AbstractDict{Y,_cache_value_type(Y,∂Y∂X)}}
     inner_problem
     min_size::Int
@@ -88,17 +88,18 @@ _ensure_typed_copy(::Type{_X}, x::X) where {_X,X} = _X(x)
 function implicit_solve!(y2, implicit_problem::CacheImplicitProblem{Y}, x) where Y
     (; inner_problem, min_size, max_size, dict, y_hits) = implicit_problem
     timestamp = time_ns()
-    if haskey(dict, x)
-        (; y, ∂y∂x) = dict[x]
-        dict[x] = (; timestamp, y, ∂y∂x)
-        y_hit = true
-    else
+    v = get(dict, x, nothing)
+    if v ≡ nothing
         (; n_y) = get_dimensions(inner_problem)
         y = Vector{get_preferred_eltype(inner_problem)}(undef, n_y)
         implicit_solve!(y, inner_problem, x)
         dict[_ensure_typed_copy(Y, x)] = (; timestamp, y, ∂y∂x = nothing)
         length(dict) > max_size && _cull!(dict, min_size)
         y_hit = false
+    else
+        (; y, ∂y∂x) = v
+        dict[x] = (; timestamp, y, ∂y∂x)
+        y_hit = true
     end
     update!(y_hits, y_hit)
     copy!(y2, y)
