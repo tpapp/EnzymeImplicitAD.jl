@@ -112,6 +112,13 @@ mutable struct OnlineMean{T}
     OnlineMean{T}() where T = new(0, zero(T))
 end
 
+function Base.show(io::IO, om::Lockable{<:OnlineMean})
+    @lock om begin
+        (; sum, count) = om[]
+        print(io, "« online mean $(sum) / $(count) ≈ $(round(sum / count; digits = 4)) »")
+    end
+end
+
 """
 $(SIGNATURES)
 

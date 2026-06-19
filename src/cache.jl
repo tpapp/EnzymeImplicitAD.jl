@@ -105,31 +105,25 @@ function implicit_solve!(y2, implicit_problem::CacheImplicitProblem{Y}, x) where
     nothing
 end
 
-function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, _y) where Y
-    # NOTE: the y argument is ignored, it is obtained from the cache
+function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, y) where Y
     (; inner_problem, min_size, max_size, dict, y_hits, ∂y∂x_hits) = implicit_problem
     timestamp = time_ns()
-    if haskey(dict, x)
-        (; y, ∂y∂x) = dict[x]
-        if ∂y∂x ≡ nothing
-            ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
-            update!(y_hits, true)
-            ∂y∂x_hit = false
-        else
-            ∂y∂x_hit = true
-        end
-        dict[x] = (; timestamp, y, ∂y∂x)
-        update!(∂y∂x_hits, ∂y∂x_hit)
-    else
-        (; n_y) = get_dimensions(inner_problem)
-        T = get_preferred_eltype(inner_problem)
-        y = Vector{T}(undef, n_y)
-        implicit_solve!(y, inner_problem, x)
+    v = get(dict, x, nothing)
+    if v ≡ nothing
+        # no cached results, so save a copy of y
         ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
-        dict[_ensure_typed_copy(Y, x)] = (; timestamp, y, ∂y∂x)
+        dict[_ensure_typed_copy(Y, x)] = (; timestamp, y = _ensure_typed_copy(Y, y), ∂y∂x)
         length(dict) > max_size && _cull!(dict, min_size)
         update!(y_hits, false)
         update!(∂y∂x_hits, false)
+    elseif v.∂y∂x ≡ nothing
+        # cached y exists, add ∂y∂x
+        ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
+        dict[x] = (; timestamp, y, ∂y∂x)
+        update!(∂y∂x_hits, false)
+    else
+        update!(∂y∂x_hits, true)
+        (; ∂y∂x) = v
     end
     ∂y∂x
 end

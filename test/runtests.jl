@@ -189,7 +189,7 @@ end
             E.implicit_solve!(y, P, x)
         end
         s = E.get_statistics(P)
-        @test s.average_y_hit == (M - 1) / M
+        @test s.average_y_hit == (M - 1) / M # all but one
         @test isnan(s.average_∂y∂x_hit)
 
         # just the derivative
@@ -197,14 +197,14 @@ end
             E.calculate_∂y∂x(P, x, y)
         end
         s = E.get_statistics(P)
-        @test s.average_y_hit == M / (M + 1) # access internally once more
-        @test s.average_∂y∂x_hit == (M - 1) / M
+        @test s.average_y_hit == (M - 1) / M    # same as before
+        @test s.average_∂y∂x_hit == (M - 1) / M # all but one
 
         # another value
         x .+= 1
         E.calculate_∂y∂x(P, x, y)
         s = E.get_statistics(P)
-        @test s.average_y_hit == M / (M + 2) # one extra miss
+        @test s.average_y_hit == (M - 1) / (M + 1) # one extra miss
         @test s.average_∂y∂x_hit == (M - 1) / (M + 1) # one extra miss
     end
 end
