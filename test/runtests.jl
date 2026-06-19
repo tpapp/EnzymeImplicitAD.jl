@@ -42,13 +42,15 @@ end
 
     x = randn(n_x)
     y = fill(NaN, n_y)
-    E.implicit_solve!(y, P, x)
+    @inferred E.implicit_solve!(y, P, x)
     r = fill(NaN, n_y)
     # check solution via rootfinder
     @inferred E.implicit_residuals!(r, P, x, y)
     @test maximum(abs, r) ≤ 1e-10
     (; average_iterations) = E.get_statistics(P)
     @test isfinite(average_iterations) && average_iterations > 0
+
+    @inferred E.calculate_∂y∂x(P, x, y)
 
     test_Enzyme_AD(P, P0)
 end
@@ -64,7 +66,7 @@ end
     for _ in 1:(4*K)            # > max_size to test culling
         x = randn(n_x)
         y = fill(NaN, n_y)
-        E.implicit_solve!(y, P, x)
+        @inferred E.implicit_solve!(y, P, x)
         r = fill(NaN, n_y)
         # check solution via rootfinder
         E.implicit_residuals!(r, P, x, y)
@@ -100,7 +102,7 @@ end
         x .+= 1
         @inferred E.calculate_∂y∂x(P, x, y)
         s = E.get_statistics(P)
-        @test s.average_y_hit == (M - 1) / (M + 1) # one extra miss
+        @test s.average_y_hit == (M - 1) / M          # same as before
         @test s.average_∂y∂x_hit == (M - 1) / (M + 1) # one extra miss
     end
 end

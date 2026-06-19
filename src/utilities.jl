@@ -115,7 +115,9 @@ end
 function Base.show(io::IO, om::Lockable{<:OnlineMean})
     @lock om begin
         (; sum, count) = om[]
-        print(io, "« online mean $(sum) / $(count) ≈ $(round(sum / count; digits = 4)) »")
+        print(io, "« $(sum) / $(count) ≈ ",
+              count == 0 ? "undefined" : "$(round(sum / count; digits = 4))",
+              " »")
     end
 end
 
