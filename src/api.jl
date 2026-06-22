@@ -43,15 +43,23 @@ Caller can assume that the dimensions are correct.
 """
 initial_guess(problem, x) = zeros(get_dimensions(problem).n_y)
 
+# FIXME docs
+function implicit_solve_with_solver! end
+
 """
-$(FUNCTIONNAME)(y, implicit_problem, x, y0 = initial_guess(implicit_problem, x)) → nothing
+$(SIGNATURES) → nothing
 
 Solve the implicit problem ``g(x, y(x)) = 0`` at `x`, overwriting `y` with ``y(x)`` result.
 
 Return `nothing`. See [`implicit_residuals!`](@ref), which implements ``g`` above.
+
+!!! NOTE
+    Don't specialize this method, see [`impicit_solve_with_solver!`](@ref).
 ```
 """
-function implicit_solve! end
+function implicit_solve!(y, implicit_solve, x)
+    implicit_solve_with_solver!(y, implicit_solve, nothing, x)
+end
 
 """
 $(FUNCTIONNAME)(r, implicit_problem, x, y) → nothing

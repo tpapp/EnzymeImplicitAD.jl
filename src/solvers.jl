@@ -88,7 +88,7 @@ function (w::_SolverWrap)(y)
     r
 end
 
-function implicit_solve!(y, problem::SquareImplicitProblem, x)
+function implicit_solve_with_solver!(y, problem::SquareImplicitProblem, ::Nothing, x)
     (; inner_problem, solver_AD_backend, iteration_statistics) = problem
     y0 = initial_guess(inner_problem, x)
     tol = √eps()
