@@ -47,8 +47,6 @@ function E.get_dimensions(P::LinearProblem)
     (; n_x, n_y, n_r = n_y)
 end
 
-E.get_preferred_eltype(P::LinearProblem) = eltype(P.A)
-
 function E.implicit_solve!(y::AbstractVector{T}, P::LinearProblem{true}, x) where T
     (; A, luB) = P
     mul!(y, A, x, -one(T), zero(T))
