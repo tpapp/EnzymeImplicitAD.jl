@@ -7,7 +7,7 @@ import EnzymeImplicitAD as E
 using LinearAlgebra, Test, Enzyme
 
 ####
-#### utilities for tests
+#### linear problem
 ####
 
 """
@@ -106,4 +106,32 @@ function test_Enzyme_AD(implicit_problem, analytical_problem;
             @test sum(abs2, r) ≤ atol
         end
     end
+end
+
+####
+#### test benchmarks
+####
+
+"Solver and derivatives fail with a given probability."
+struct SometimesFails{P}
+    inner_problem::P
+    failure_probability::Float64
+end
+
+E.get_dimensions(s::SometimesFails) = E.get_dimensions(s.inner_problem)
+
+E.get_preferred_eltype(s::SometimesFails) = E.get_preferred_eltype(s.inner_problem)
+
+function E.implicit_solve!(y, s::SometimesFails, x)
+    rand() < s.failure_probability && throw(DomainError(copy(x), "I don't like this particular x"))
+    E.implicit_solve!(y, s.inner_problem, x)
+end
+
+function E.implicit_residuals!(r, s::SometimesFails, x, y)
+    E.implicit_residuals!(r, s.inner_problem, x, y)
+end
+
+function E.calculate_∂y∂x(s::SometimesFails, x, y)
+    rand() < s.failure_probability && throw(DomainError(copy(x), "I don't like this particular x"))
+    E.calculate_∂y∂x(s.inner_problem, x, y)
 end

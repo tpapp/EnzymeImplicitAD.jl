@@ -2,7 +2,7 @@
 ##### benchmarks
 #####
 
-public benchmark_and_stresstest
+public benchmark_and_stresstest, Benchmarks
 
 import Random
 
@@ -56,18 +56,51 @@ function update!(timings::Timings, timed, _x)
 end
 
 ####
+#### errors
+####
+
+"Structure for saving errors and nice printing."
+Base.@kwdef struct ErrorAt
+    x::Any
+    error::Any
+    backtrace::Any
+end
+
+function Base.show(io::IO, e::ErrorAt)
+    (; x, error, backtrace) = e
+    print(io, "error at x = ", x, "\n")
+    showerror(io, error, backtrace)
+end
+
+####
 #### benchmarks
 ####
 
+"""
+$(TYPEDEF)
+
+**Fields are part of the API.**
+
+$(FIELDS)
+"""
 Base.@kwdef struct Benchmarks
-    implicit_solve_timings
-    implicit_solve_errors
+    "timings for [`implicit_solve!`](@ref)"
+    implicit_solve_timings::Timings
+    "vector of errors recorded for [`implicit_solve!`](@ref)"
+    implicit_solve_errors::Vector{ErrorAt}
+    "timings for [`calculate_∂y∂x`](@ref)"
+    calculate_∂y∂x_timings::Timings
+    "vector of errors recorded for [`calculate_∂y∂x`](@ref)"
+    calculate_∂y∂x_errors::Vector{ErrorAt}
 end
 
 function Base.show(io::IO, benchmarks::Benchmarks)
-    (; implicit_solve_timings, implicit_solve_errors) = benchmarks
+    (; implicit_solve_timings, implicit_solve_errors,
+     calculate_∂y∂x_timings, calculate_∂y∂x_errors) = benchmarks
     print(io, "implicit solve timings: ", implicit_solve_timings)
-    print(io, "\n", length(implicit_solve_errors), " implicit solve errors")
+    print(io, "\n    ", length(implicit_solve_errors), " implicit solve errors")
+    print(io, "\ncalculate ∂y∂x timings: ", calculate_∂y∂x_timings)
+    print(io, "\n    ", length(calculate_∂y∂x_errors), " calculate ∂y∂x errors")
 end
 
 """
@@ -79,25 +112,40 @@ function benchmark_and_stresstest(implicit_problem;
                                   worst_solver = max(20, div(count, 10, RoundUp)),
                                   worst_∂y∂x = max(20, div(count, 10, RoundUp)),
                                   rng = Random.default_rng())
-    implicit_solve_errors = Vector{@NamedTuple{x,error,backtrace}}()
+    implicit_solve_errors = Vector{ErrorAt}()
+    calculate_∂y∂x_errors = Vector{ErrorAt}()
     (; n_x, n_y, n_r) = get_dimensions(implicit_problem)
     T = get_preferred_eltype(implicit_problem)
     x = Vector{Float64}(undef, n_x)
     y = Vector{Float64}(undef, n_y)
     r = Vector{Float64}(undef, n_r)
     implicit_solve_timings = Timings()
+    calculate_∂y∂x_timings = Timings()
     for j in 0:count            # j = 0 extra evaluation for the compiler
+        @. x = randn()
+        # solver
         try
-            @. x = randn()
             𝒯 = @timed implicit_solve!(y, implicit_problem, x)
             j > 0 && update!(implicit_solve_timings, 𝒯, x) # don't record j = 0
+            # ∂y∂x
+            try
+                𝒯 = @timed calculate_∂y∂x(implicit_problem, x, y)
+                j > 0 && update!(calculate_∂y∂x_timings, 𝒯, x) # don't record j = 0
+            catch e
+                if length(calculate_∂y∂x_errors) < max_errors
+                    push!(calculate_∂y∂x_errors, ErrorAt(; x, error = e, backtrace = catch_backtrace()))
+                else
+                    break
+                end
+            end
         catch e
             if length(implicit_solve_errors) < max_errors
-                push!(implicit_solve_errors, (; x, error = e, backtrace = catch_backtrace()))
+                push!(implicit_solve_errors, ErrorAt(; x, error = e, backtrace = catch_backtrace()))
             else
                 break
             end
         end
     end
-    Benchmarks(; implicit_solve_timings, implicit_solve_errors)
+    Benchmarks(; implicit_solve_timings, implicit_solve_errors,
+               calculate_∂y∂x_timings, calculate_∂y∂x_errors)
 end
