@@ -46,6 +46,9 @@ initial_guess(problem, x) = zeros(get_dimensions(problem).n_y)
 # FIXME docs
 function implicit_solve_with_solver! end
 
+# FIXME docs
+function get_solver end
+
 """
 $(SIGNATURES) → nothing
 
@@ -57,8 +60,9 @@ Return `nothing`. See [`implicit_residuals!`](@ref), which implements ``g`` abov
     Don't specialize this method, see [`impicit_solve_with_solver!`](@ref).
 ```
 """
-function implicit_solve!(y, implicit_solve, x)
-    implicit_solve_with_solver!(y, implicit_solve, nothing, x)
+function implicit_solve!(y, implicit_problem, x)
+    solver = get_solver(implicit_problem)
+    implicit_solve_with_solver!(y, implicit_problem, solver, x)
 end
 
 """

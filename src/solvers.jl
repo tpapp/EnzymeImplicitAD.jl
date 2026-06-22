@@ -31,6 +31,10 @@ function Base.show(io::IO, problem::SquareImplicitProblem)
     print(io, "wrapping $(n_x) × $(n_y) → $(n_r) problem $(inner_problem)")
 end
 
+struct SquareSolver end
+
+get_solver(::SquareImplicitProblem) = SquareSolver()
+
 """
 $(SIGNATURES)
 
@@ -88,7 +92,7 @@ function (w::_SolverWrap)(y)
     r
 end
 
-function implicit_solve_with_solver!(y, problem::SquareImplicitProblem, ::Nothing, x)
+function implicit_solve_with_solver!(y, problem::SquareImplicitProblem, ::SquareSolver, x)
     (; inner_problem, solver_AD_backend, iteration_statistics) = problem
     y0 = initial_guess(inner_problem, x)
     tol = √eps()
