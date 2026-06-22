@@ -4,6 +4,52 @@
 
 public API_sanity_checks
 
+####
+#### sanity checks
+####
+
+"""
+Implementation for `API_sanity_checks`, not part of the API.
+
+Each field is either `missing` (test not performed), `nothing` (test passed), or an
+error-backtrace pair.
+"""
+Base.@kwdef struct SanityChecks
+    check_dimensions
+    check_eltype
+    check_implicit_solve
+    check_implicit_residuals
+    check_task_local_buffers
+    check_∂y∂x
+    check_statistics
+end
+
+"""
+$(SIGNATURES)
+
+Helper macro for implementing [`API_sanity_checks`](@ref).
+
+Initializes `errorvar = missing`, then sets it to `nothing` after successful evaluation
+of `body`, which is only run when `!terminate`.
+
+If there is an error, it is caught and stored in `errorvar`, and `terminate = true` is set.
+"""
+macro _sanity_check(terminate, errorvar, body)
+    err = esc(errorvar)
+    quote
+        $(err) = missing
+        if !$(esc(terminate))
+            try
+                $(esc(body))
+                $(err) = nothing
+            catch e
+                $(err) = (e, catch_backtrace())
+                $(esc(terminate)) = true
+            end
+        end
+    end
+end
+
 """
 $(SIGNATURES) → checks
 

@@ -49,7 +49,7 @@ function square_implicit_problem(implicit_problem;
     @argcheck is_square(implicit_problem)
     (; n_x, n_r, n_y) = get_dimensions(implicit_problem)
     T = get_preferred_eltype(implicit_problem)
-    buffers =  OhMyThreads.TaskLocalValue{_make_buffers_type(T)}(() -> _make_buffers(T; n_x, n_y, n_r))
+    buffers = OhMyThreads.TaskLocalValue{_make_buffers_type(T)}(() -> _make_buffers(T; n_x, n_y, n_r))
     SquareImplicitProblem{T}(implicit_problem, solver_AD_backend, buffers, online_mean(Int64))
 end
 
