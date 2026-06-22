@@ -22,9 +22,10 @@ function API_sanity_checks(implicit_problem)
     @_sanity_check terminate check_dimensions begin
         dimensions = get_dimensions(implicit_problem)
         (; n_x, n_y, n_r) = dimensions
-        @assert n_x isa Int && n_x > 0
-        @assert n_y isa Int && n_y > 0
-        @assert n_r isa Int && n_r > 0
+        @argcheck n_x isa Int && n_x > 0
+        @argcheck n_y isa Int && n_y > 0
+        @argcheck n_r isa Int && n_r > 0
+        @argcheck (n_y == n_r) == is_square(implicit_problem)
     end
     # eltype
     T = Union{}
