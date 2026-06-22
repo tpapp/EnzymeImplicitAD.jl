@@ -9,6 +9,7 @@ using ConcreteStructs: @concrete
 
 include("utilities.jl")
 include("api.jl")
+include("benchmarks.jl")
 include("enzyme_ad.jl")
 include("solvers.jl")
 include("cache.jl")

@@ -107,6 +107,38 @@ end
     end
 end
 
+####
+#### benchmarks
+####
+
+"Solver and derivatives fail with a given probability."
+struct SometimesFails{P}
+    inner_problem::P
+    failure_probability::Float64
+end
+
+E.get_dimensions(s::SometimesFails) = E.get_dimensions(s.inner_problem)
+
+E.get_preferred_eltype(s::SometimesFails) = E.get_preferred_eltype(s.inner_problem)
+
+function E.implicit_solve!(y, s::SometimesFails, x)
+    if rand() < s.failure_probability
+        throw(DomainError(copy(x), "I don't like this particular x"))
+    else
+        E.implicit_solve!(y, s.inner_problem, x)
+    end
+end
+
+@testset "benchmarks" begin
+    P = SometimesFails(LinearProblem(; n_x = 3, n_y = 4), 0.01)
+    b = E.benchmark_and_stresstest(P; count = 1000)
+    @test 0 < length(b.implicit_solve_errors) ≤ 20
+end
+
+####
+#### QA
+####
+
 @testset "static analysis with JET.jl" begin
     import JET
     JET.test_package(EnzymeImplicitAD, target_modules=(EnzymeImplicitAD,))
