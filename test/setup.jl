@@ -47,8 +47,6 @@ function E.get_dimensions(P::LinearProblem)
     (; n_x, n_y, n_r = n_y)
 end
 
-E.get_preferred_eltype(P::LinearProblem) = eltype(P.A)
-
 function E.implicit_solve!(y::AbstractVector{T}, P::LinearProblem{true}, x) where T
     (; A, luB) = P
     mul!(y, A, x, -one(T), zero(T))
@@ -67,7 +65,6 @@ analytical_pushforward(P::LinearProblem, dx) = -(P.luB \ (P.A * dx))
 
 analytical_pullback(P::LinearProblem, dy) = (P.luB \ P.A)' * (.-dy)
 
-@test E.API_sanity_checks(LinearProblem(; n_x = 3, n_y = 4)).all_ok
 
 """
 Test forward and reverse AD with Enzyme for `implicit_problem`.
