@@ -107,6 +107,21 @@ end
     end
 end
 
+####
+#### benchmarks
+####
+
+@testset "benchmarks" begin
+    P = SometimesFails(LinearProblem(; n_x = 3, n_y = 4), 0.01)
+    b = E.benchmark_and_stresstest(P; count = 1000)
+    @test 0 < length(b.implicit_solve_errors) ≤ 20
+    @test 0 < length(b.calculate_∂y∂x_errors) ≤ 20
+end
+
+####
+#### QA
+####
+
 @testset "static analysis with JET.jl" begin
     import JET
     JET.test_package(EnzymeImplicitAD, target_modules=(EnzymeImplicitAD,))
