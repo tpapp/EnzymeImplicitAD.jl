@@ -3,6 +3,7 @@
 ![lifecycle](https://img.shields.io/badge/lifecycle-experimental-orange.svg)
 [![build](https://github.com/tpapp/EnzymeImplicitAD.jl/workflows/CI/badge.svg)](https://github.com/tpapp/EnzymeImplicitAD.jl/actions?query=workflow%3ACI)
 [![Aqua QA](https://juliatesting.github.io/Aqua.jl/dev/assets/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+[![codecov](https://codecov.io/gh/tpapp/EnzymeImplicitAD.jl/graph/badge.svg?token=SUM2dileFk)](https://codecov.io/gh/tpapp/EnzymeImplicitAD.jl)
 
 This package implements forward and reverse mode AD via Enzyme.jl for the implicit function
 
