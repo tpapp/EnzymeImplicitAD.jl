@@ -2,7 +2,7 @@
 ##### the generic API
 #####
 
-public get_dimensions, get_preferred_eltype, is_square, initial_guess, implicit_solve!,
+public get_dimensions, get_preferred_eltype, is_square, initial_guess!, implicit_solve!,
     implicit_residuals!, task_local_buffers, calculate_∂y∂x, calculate_pushforward!,
     accumulate_pullback!, get_statistics
 
@@ -35,13 +35,15 @@ function is_square(implicit_problem)
 end
 
 """
-$(SIGNATURES)
+$(SIGNATURES) → nothing
 
-Provide an initial guess for the problem given `x`.
+Provide an initial guess for the problem given `x`, into `y`.
+
+Return `nothing`.
 
 Caller can assume that the dimensions are correct.
 """
-initial_guess(problem, x) = zeros(get_dimensions(problem).n_y)
+initial_guess!(y, problem, x) = (fill!(y, zero(eltype(y))); nothing)
 
 """
 $(FUNCTIONNAME)(implicit_problem) → solver
@@ -53,7 +55,11 @@ function get_solver end
 """
 $(FUNCTIONNAME)((y, implicit_problem, solver, x) → nothing
 
-Solve with `implicit_problem` at `x` with `solver`, putting the result in `y`.
+Solve with `implicit_problem` at `x` with `solver` called.
+
+`y` should contain a valid initial guess when called.
+
+The result is put in `y`.
 """
 function implicit_solve_with_solver! end
 
@@ -65,12 +71,13 @@ Solve the implicit problem ``g(x, y(x)) = 0`` at `x`, overwriting `y` with ``y(x
 Return `nothing`. See [`implicit_residuals!`](@ref), which implements ``g`` above.
 
 !!! NOTE
-    Don't specialize this method, see [`impicit_solve_with_solver!`](@ref) and
-    [`get_solver`](@ref).
+    Don't specialize this method, rather [`initial_guess!`](@ref),
+    [`impicit_solve_with_solver!`](@ref) and [`get_solver`](@ref).
 ```
 """
 function implicit_solve!(y, implicit_problem, x)
     solver = get_solver(implicit_problem)
+    initial_guess!(y, implicit_problem, x)
     implicit_solve_with_solver!(y, implicit_problem, solver, x)
 end
 

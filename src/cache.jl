@@ -2,6 +2,12 @@
 ##### wrapper to cache y and ∂y∂x
 #####
 
+import Distances
+
+####
+#### cache entries
+####
+
 """
 A cached `y` and `∂y∂x` result, with the `timestamp` for the latest access.
 
@@ -17,6 +23,37 @@ mutable struct CacheEntry{Y,∂Y∂X}
     ∂y∂x::Union{Nothing,∂Y∂X}
 end
 
+####
+#### find nearest
+####
+
+"""
+$(SIGNATURES)
+
+Find the “nearest” key in `dict` according to `strategy`. Will return a `key => value`
+pair or `nothing`.
+
+The concept of “nearest” is determined by `strategy`, and may use a heuristic.
+
+Supported strategies:
+
+- `nothing`: always return `nothing`
+
+- `::Distances.Metric` will use the relevant distance
+"""
+find_nearest(x, dict, strategy::Nothing) = nothing
+
+function find_nearest(x, dict, metric::Distances.PreMetric)
+    T = eltype(x)
+    isempty(dict) && return nothing
+    x = argmin(y -> evaluate(metric, x, y), keys(dict))
+    x => dict[x]
+end
+
+####
+#### wrapper
+####
+
 # NOTE: parametrization assumes `x` and `y` values have the same type `Y`
 @concrete struct CacheImplicitProblem{Y,∂Y∂X}
     "the inner (parent) problem"
@@ -31,7 +68,10 @@ end
     y_hits
     "statistics for finding `∂y∂x` values in cache"
     ∂y∂x_hits
-    function CacheImplicitProblem(inner_problem, min_size::Int, max_size::Int)
+    "strategy for find_nearest"
+    nearest_strategy
+    function CacheImplicitProblem(inner_problem, min_size::Int, max_size::Int;
+                                  nearest_strategy = Distances.Euclidean())
         @argcheck 0 < min_size < max_size
         T = get_preferred_eltype(inner_problem)
         Y = Vector{T}
@@ -40,8 +80,10 @@ end
         y_hits = online_mean(UInt64)
         ∂y∂x_hits = online_mean(UInt64)
         new{Y,∂Y∂X,typeof(inner_problem),typeof(lockable_dict),
-            typeof(y_hits),typeof(∂y∂x_hits)}(inner_problem, min_size, max_size,
-                                              lockable_dict, y_hits, ∂y∂x_hits)
+            typeof(y_hits),typeof(∂y∂x_hits),
+            typeof(nearest_strategy)}(inner_problem, min_size, max_size, lockable_dict,
+                                      y_hits, ∂y∂x_hits,
+                                      nearest_strategy)
     end
 end
 
@@ -54,6 +96,18 @@ end
 
 for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y∂x_type]
     @eval ($f)(implicit_problem::CacheImplicitProblem) = ($f)(implicit_problem.inner_problem)
+end
+
+function initial_guess(problem::CacheImplicitProblem, x)
+    (; lockable_dict, nearest_strategy) = problem
+    lock(lockable_dict) do dict
+        nearest = find_nearest(x, dict, nearest_strategy)
+        if nearest ≡ nothing    # fall back
+            initial_guess(inner_problem, x)
+        else
+            nearest[2].y
+        end
+    end
 end
 
 function get_statistics(problem::CacheImplicitProblem)
