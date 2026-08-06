@@ -44,7 +44,7 @@ Wrap `implicit_problem` that implements at least
 - [`get_preferred_eltype`](@ref) (which has a default fallback),
 - [`get_dimensions`](@ref),
 
-and ideally also [`initial_guess`](@ref), implementing [`implicit_solve!`](@ref).
+and ideally also [`initial_guess!`](@ref), implementing [`implicit_solve!`](@ref).
 
 Supported statistics: those of the inner problem, `average_iterations`.
 """
@@ -94,9 +94,8 @@ end
 
 function implicit_solve_with_solver!(y, problem::SquareImplicitProblem, ::SquareSolver, x)
     (; inner_problem, solver_AD_backend, iteration_statistics) = problem
-    y0 = initial_guess(inner_problem, x)
     tol = √eps()
-    root_problem = trust_region_problem(_SolverWrap(inner_problem, x), y0;
+    root_problem = trust_region_problem(_SolverWrap(inner_problem, x), y;
                                         AD_backend = solver_AD_backend)
     stopping_criterion = SolverStoppingCriterion(; residual_norm = tol)
     solution = trust_region_solver(root_problem; stopping_criterion)

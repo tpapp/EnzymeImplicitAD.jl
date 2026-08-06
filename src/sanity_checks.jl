@@ -17,6 +17,7 @@ error-backtrace pair.
 Base.@kwdef struct SanityChecks
     check_dimensions
     check_eltype
+    check_initial_guess
     check_implicit_solve
     check_implicit_residuals
     check_task_local_buffers
@@ -65,6 +66,7 @@ function API_sanity_checks(implicit_problem)
     n_y = 0
     n_r = 0
     terminate = false
+
     @_sanity_check terminate check_dimensions begin
         dimensions = get_dimensions(implicit_problem)
         (; n_x, n_y, n_r) = dimensions
@@ -73,25 +75,35 @@ function API_sanity_checks(implicit_problem)
         @argcheck n_r isa Int && n_r > 0
         @argcheck (n_y == n_r) == is_square(implicit_problem)
     end
+
     # eltype
     T = Union{}
     @_sanity_check terminate check_eltype begin
         T = get_preferred_eltype(implicit_problem)
         @argcheck T <: AbstractFloat
     end
-    # implicit solve
+
+    # initial guess
     x = randn(T, n_x)
     y = fill(T(NaN), n_y)
+    @_sanity_check terminate check_initial_guess begin
+        @argcheck initial_guess!(y, implicit_problem, x) ≡ nothing
+        @argcheck all(isfinite, y)
+    end
+
+    # implicit solve
     @_sanity_check terminate check_implicit_solve begin
         implicit_solve!(y, implicit_problem, x)
         @argcheck all(isfinite, y)
     end
+
     # implicit residuals
     r = fill(T(NaN), n_y)
     @_sanity_check terminate check_implicit_residuals begin
         @argcheck implicit_residuals!(r, implicit_problem, x, y) ≡ nothing
         @argcheck sum(abs2, r) ≤ √eps(T) # FIXME this is hardcoded, API?
     end
+
     # task local buffers
     @_sanity_check terminate check_task_local_buffers begin
         buffers = task_local_buffers(implicit_problem)
@@ -106,6 +118,7 @@ function API_sanity_checks(implicit_problem)
         _check_y_buffer(buffers.buffer_r, n_r)
         _check_y_buffer(buffers.buffer_r2, n_r)
     end
+
     # ∂y∂x
     @_sanity_check terminate check_∂y∂x begin
         ∂Y∂X = get_∂y∂x_type(implicit_problem)
@@ -128,7 +141,7 @@ function API_sanity_checks(implicit_problem)
     end
     # collate and return
     @label done
-    SanityChecks(; check_dimensions, check_eltype, check_implicit_solve,
+    SanityChecks(; check_dimensions, check_eltype, check_initial_guess, check_implicit_solve,
                  check_implicit_residuals, check_task_local_buffers, check_∂y∂x,
                  check_statistics)
 end
