@@ -55,7 +55,7 @@ function get_solver end
 """
 $(FUNCTIONNAME)((y, implicit_problem, solver, x) → nothing
 
-Solve with `implicit_problem` at `x` with `solver` called.
+Solve with `implicit_problem` at `x` with `solver`.
 
 `y` should contain a valid initial guess when called.
 
