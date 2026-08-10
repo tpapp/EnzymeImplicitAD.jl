@@ -99,7 +99,7 @@ for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y
 end
 
 function initial_guess!(y, problem::CacheImplicitProblem, x)
-    (; lockable_dict, nearest_strategy) = problem
+    (; inner_problem, lockable_dict, nearest_strategy) = problem
     lock(lockable_dict) do dict
         nearest = find_nearest(x, dict, nearest_strategy)
         if nearest ≡ nothing    # fall back
