@@ -98,14 +98,14 @@ for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y
     @eval ($f)(implicit_problem::CacheImplicitProblem) = ($f)(implicit_problem.inner_problem)
 end
 
-function initial_guess(problem::CacheImplicitProblem, x)
+function initial_guess!(y, problem::CacheImplicitProblem, x)
     (; lockable_dict, nearest_strategy) = problem
     lock(lockable_dict) do dict
         nearest = find_nearest(x, dict, nearest_strategy)
         if nearest ≡ nothing    # fall back
-            initial_guess(inner_problem, x)
+            initial_guess!(y, inner_problem, x)
         else
-            nearest[2].y
+            copy!(y, nearest[2].y)
         end
     end
 end
