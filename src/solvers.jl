@@ -31,9 +31,11 @@ function Base.show(io::IO, problem::SquareImplicitProblem)
     print(io, "wrapping $(n_x) × $(n_y) → $(n_r) problem $(inner_problem)")
 end
 
-struct SquareSolver end
+struct SquareSolver
+    maximum_iterations::Int
+end
 
-get_solver(::SquareImplicitProblem) = SquareSolver()
+get_solver(::SquareImplicitProblem) = SquareSolver(500)
 
 """
 $(SIGNATURES)
@@ -96,13 +98,18 @@ function (w::_SolverWrap)(y)
     r
 end
 
-function implicit_solve_with_solver!(y, problem::SquareImplicitProblem, ::SquareSolver, x)
+function implicit_solve_with_solver!(y, problem::SquareImplicitProblem, solver::SquareSolver, x)
     (; inner_problem, solver_AD_backend, iteration_statistics) = problem
+    (; maximum_iterations) = solver
     tol = √eps()
     root_problem = trust_region_problem(_SolverWrap(inner_problem, x), y;
                                         AD_backend = solver_AD_backend)
-    stopping_criterion = SolverStoppingCriterion(; residual_norm = tol)
-    solution = trust_region_solver(root_problem; stopping_criterion)
+    stopping_criterion = SolverStoppingCriterion(; residual_norm = tol,
+                                                 absolute_coordinate_change = 0.0,
+                                                 relative_coordinate_change = 0.0,
+                                                 absolute_residual_change = 0.0,
+                                                 relative_residual_change = 0.0)
+    solution = trust_region_solver(root_problem; stopping_criterion, maximum_iterations)
     (; x, residual, last_step_diagnostics, iterations, stop_cause) = solution
     update!(iteration_statistics, iterations)
     (; residual_norm) = last_step_diagnostics
