@@ -69,6 +69,10 @@ function get_preferred_eltype(problem::SquareImplicitProblem)
     get_preferred_eltype(problem.inner_problem)
 end
 
+function initial_guess!(y, problem::SquareImplicitProblem, x)
+    initial_guess!(y, problem.inner_problem, x)
+end
+
 is_square(::SquareImplicitProblem) = true
 
 function implicit_residuals!(r, problem::SquareImplicitProblem, x, y)
