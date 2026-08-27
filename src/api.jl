@@ -2,9 +2,25 @@
 ##### the generic API
 #####
 
-public get_dimensions, get_preferred_eltype, is_square, initial_guess!, implicit_solve!,
-    implicit_residuals!, task_local_buffers, calculate_∂y∂x, calculate_pushforward!,
-    accumulate_pullback!, get_statistics
+public
+    # introspection
+    get_dimensions,
+    ZeroResiduals,
+    get_solution_concept,
+    get_preferred_eltype,
+    get_statistics,
+    #
+    initial_guess!,
+    implicit_solve!,
+    implicit_residuals!,
+    task_local_buffers,
+    calculate_∂y∂x,
+    calculate_pushforward!,
+    accumulate_pullback!
+
+####
+#### introspection
+####
 
 """
 $(FUNCTIONNAME)(implicit_problem) → (; n_x, n_y, n_r)
@@ -12,6 +28,19 @@ $(FUNCTIONNAME)(implicit_problem) → (; n_x, n_y, n_r)
 Return the dimensions of the problem.
 """
 function get_dimensions end
+
+"""
+Solution concept: for a given `x`, `y` is the solution which makes residuals `r` zero in
+`implicit_residuals!(r, problem, x, y)`.
+"""
+struct ZeroResiduals end
+
+"""
+$(FUNCTIONNAME)(implicit_problem) → solution_concept
+
+Return the solution concept. The default is [`ZeroResiduals`](@ref).
+"""
+function get_solution_concept end
 
 """
 $(SIGNATURES) → T
@@ -25,14 +54,20 @@ The default is `Float64`.
 get_preferred_eltype(implicit_problem) = Float64
 
 """
-$(SIGNATURES)
+$(SIGNATURES) → statistics::NamedTuple
 
-Return `true` iff the problem is square (`y`, `r` have the same dimensions).
+Return various statistics that are accumulated during calls, that may help the user
+evaluate and tune algorithms.
+
+!!! implementation note
+    Wrapper types should merge statistics of the parent in most cases, checking that
+    they don't overwrite. See [`merge_disjoint`](@ref).
 """
-function is_square(implicit_problem)
-    (; n_y, n_r) = get_dimensions(implicit_problem)
-    n_y == n_r
-end
+get_statistics(problem) = (;)
+
+####
+#### solver
+####
 
 """
 $(SIGNATURES) → nothing
@@ -80,6 +115,10 @@ function implicit_solve!(y, implicit_problem, x)
     initial_guess!(y, implicit_problem, x)
     implicit_solve_with_solver!(y, implicit_problem, solver, x)
 end
+
+####
+#### residuals
+####
 
 """
 $(FUNCTIONNAME)(r, implicit_problem, x, y) → nothing
@@ -133,7 +172,8 @@ $(SIGNATURES)
 
 The return type of [`calculate_∂y∂x`](@ref).
 
-Should be a concrete type that depends only on `implicit_problem`, not `x` or `y`.
+Should be a concrete type that depends only on the type of `implicit_problem`, not `x`
+or `y`.
 
 Used-defined methods should ensure consistency.
 """
@@ -169,7 +209,7 @@ Calculate the pushforward `dy = ∂y∂x ⋅ dx` into `dy`.
 A fallback is provided using Enzyme, but an `implicit_problem` can define its own method.
 """
 function calculate_pushforward!(dy, implicit_problem, x, y, ∂y∂x::∂Y∂X, dx)
-    @assert is_square(implicit_problem)
+    @argcheck get_solution_concept(implicit_problem) ≡ ZeroResiduals()
     (; buffer_r) = task_local_buffers(implicit_problem)
     _inplace_∂g∂x_v!(dy, dx, implicit_problem, x, y, buffer_r)
     ldiv!(∂y∂x.∂g∂y_factor, dy)
@@ -185,7 +225,7 @@ Accumulate the pullback `dy ⋅ ∂y∂x` into `dx`.
 A default is implemented using Enzyme, but an `implicit_problem` can define its own method.
 """
 function accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x::∂Y∂X, dy)
-    @assert is_square(implicit_problem)
+    @argcheck get_solution_concept(implicit_problem) ≡ ZeroResiduals()
     (; ∂g∂y_factor) = ∂y∂x
     # math:
     #     dy ⋅ ∂y/∂x = - (dy' / ∂g/∂y) ⋅ ∂g/∂x
@@ -197,15 +237,3 @@ function accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x::∂Y∂X, dy
     dx .-= buffer_x
     nothing
 end
-
-"""
-$(SIGNATURES) → statistics::NamedTuple
-
-Return various statistics that are accumulated during calls, that may help the user
-evaluate and tune algorithms.
-
-!!! implementation note
-    Wrapper types should merge statistics of the parent in most cases, checking that
-    they don't overwrite. See [`merge_disjoint`](@ref).
-"""
-get_statistics(problem) = (;)

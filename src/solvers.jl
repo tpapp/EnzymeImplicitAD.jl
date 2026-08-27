@@ -50,7 +50,7 @@ Supported statistics: those of the inner problem, `average_iterations`.
 """
 function square_implicit_problem(implicit_problem;
                                  solver_AD_backend = AutoEnzyme(; function_annotation = Duplicated))
-    @argcheck is_square(implicit_problem)
+    @argcheck get_solution_concept(implicit_problem) ≡ ZeroResiduals()
     (; n_x, n_r, n_y) = get_dimensions(implicit_problem)
     T = get_preferred_eltype(implicit_problem)
     buffers = OhMyThreads.TaskLocalValue{_make_buffers_type(T)}(() -> _make_buffers(T; n_x, n_y, n_r))
@@ -59,21 +59,22 @@ end
 
 get_dimensions(problem::SquareImplicitProblem) = get_dimensions(problem.inner_problem)
 
+
+function get_preferred_eltype(problem::SquareImplicitProblem)
+    get_preferred_eltype(problem.inner_problem)
+end
+
+get_solution_concept(::SquareImplicitProblem) = ZeroResiduals()
+
 function get_statistics(problem::SquareImplicitProblem)
     (; inner_problem, iteration_statistics) = problem
     merge_disjoint(get_statistics(inner_problem),
                    (average_iterations = get_mean(iteration_statistics),))
 end
 
-function get_preferred_eltype(problem::SquareImplicitProblem)
-    get_preferred_eltype(problem.inner_problem)
-end
-
 function initial_guess!(y, problem::SquareImplicitProblem, x)
     initial_guess!(y, problem.inner_problem, x)
 end
-
-is_square(::SquareImplicitProblem) = true
 
 function implicit_residuals!(r, problem::SquareImplicitProblem, x, y)
     implicit_residuals!(r, problem.inner_problem, x, y)

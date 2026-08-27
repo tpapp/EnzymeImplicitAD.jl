@@ -94,7 +94,8 @@ function Base.show(io::IO, problem::CacheImplicitProblem)
           "\n    ∂y∂x hits: $(∂y∂x_hits)")
 end
 
-for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y∂x_type]
+for f in [:get_dimensions, :get_preferred_eltype, :get_solution_concept,
+          :task_local_buffers, :get_∂y∂x_type]
     @eval ($f)(implicit_problem::CacheImplicitProblem) = ($f)(implicit_problem.inner_problem)
 end
 
