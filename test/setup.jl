@@ -12,9 +12,6 @@ using LinearAlgebra, Test, Enzyme
 
 """
 A linear test problem ``A⋅x + B⋅y = 0``, used for testing.
-
-The `solver::Bool` argument (`S` parameter) determines whether [`implicit_solve!`](@ref)
-is implemented.
 """
 struct LinearProblem{S,TA<:AbstractMatrix,TB<:AbstractMatrix,TL}
     A::TA
@@ -33,13 +30,11 @@ end
 
 """
 Make a random (square, `n_r = n_y`) matrix problem with the given dimensions.
-
-When `solver = true` (the default), a solver method is implemented, otherwise it errors.
 """
-function LinearProblem(; n_y::Int, n_x::Int = n_y, solver::Bool = true)
+function LinearProblem(; n_y::Int, n_x::Int = n_y)
     @assert n_x > 0
     @assert n_y > 0
-    LinearProblem(randn(n_y, n_x), randn(n_y, n_y); solver)
+    LinearProblem(randn(n_y, n_x), randn(n_y, n_y))
 end
 
 function E.get_dimensions(P::LinearProblem)
@@ -49,7 +44,8 @@ end
 
 E.get_solution_concept(P::LinearProblem) = E.ZeroResiduals()
 
-function E.implicit_solve!(y::AbstractVector{T}, P::LinearProblem{true}, x) where T
+function E.implicit_solve_with_initial_guesses!(y::AbstractVector{T}, P::LinearProblem{true},
+                                               x; initial_guesses) where T
     (; A, luB) = P
     mul!(y, A, x, -one(T), zero(T))
     ldiv!(luB, y)
@@ -66,7 +62,6 @@ end
 analytical_pushforward(P::LinearProblem, dx) = -(P.luB \ (P.A * dx))
 
 analytical_pullback(P::LinearProblem, dy) = (P.luB \ P.A)' * (.-dy)
-
 
 """
 Test forward and reverse AD with Enzyme for `implicit_problem`.
@@ -120,6 +115,8 @@ end
 E.get_dimensions(s::SometimesFails) = E.get_dimensions(s.inner_problem)
 
 E.get_preferred_eltype(s::SometimesFails) = E.get_preferred_eltype(s.inner_problem)
+
+E.get_solution_concept(::SometimesFails) = E.ZeroResiduals()
 
 function E.implicit_solve!(y, s::SometimesFails, x)
     rand() < s.failure_probability && throw(DomainError(copy(x), "I don't like this particular x"))

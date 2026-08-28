@@ -10,7 +10,7 @@ public
     get_preferred_eltype,
     get_statistics,
     #
-    initial_guess!,
+    get_initial_guesses,
     implicit_solve!,
     implicit_residuals!,
     task_local_buffers,
@@ -70,33 +70,26 @@ get_statistics(problem) = (;)
 ####
 
 """
-$(SIGNATURES) → nothing
+$(SIGNATURES) → AbstractVector{<:AbstractVector{eltype(x)}}
 
-Provide an initial guess for the problem given `x`, into `y`.
-
-Return `nothing`.
+Provide initial guess(es) for the problem given `x`, as a vector of vectors. May be
+empty. The most useful initial guesses should come first.
 
 Caller can assume that the dimensions are correct.
 """
-initial_guess!(y, problem, x) = (fill!(y, zero(eltype(y))); nothing)
+get_initial_guesses(problem, x) = Vector{typeof(x)}()
 
 """
-$(FUNCTIONNAME)(implicit_problem) → solver
+$(FUNCTIONNAME)((y, implicit_problem, solver, x; initial_guesses) → nothing
 
-Return the solver for use in [`implicit_solve_with_solver!`](@ref).
-"""
-function get_solver end
-
-"""
-$(FUNCTIONNAME)((y, implicit_problem, solver, x) → nothing
-
-Solve with `implicit_problem` at `x` with `solver`.
-
-`y` should contain a valid initial guess when called.
+Solve for `y` with `implicit_problem` at `x`. `initial_guesses` is a vector of
+initial guesses for `y` (may be empty).
 
 The result is put in `y`.
+
+Methods are implemented *outside* this package.
 """
-function implicit_solve_with_solver! end
+function implicit_solve_with_initial_guesses! end
 
 """
 $(SIGNATURES) → nothing
@@ -106,14 +99,13 @@ Solve the implicit problem ``g(x, y(x)) = 0`` at `x`, overwriting `y` with ``y(x
 Return `nothing`. See [`implicit_residuals!`](@ref), which implements ``g`` above.
 
 !!! NOTE
-    Don't specialize this method, rather [`initial_guess!`](@ref),
-    [`impicit_solve_with_solver!`](@ref) and [`get_solver`](@ref).
+    Don't specialize this method, rather [`get_initial_guesses`](@ref),
+    [`impicit_solve_with_initial_guesses!`](@ref).
 ```
 """
 function implicit_solve!(y, implicit_problem, x)
-    solver = get_solver(implicit_problem)
-    initial_guess!(y, implicit_problem, x)
-    implicit_solve_with_solver!(y, implicit_problem, solver, x)
+    initial_guesses = get_initial_guesses(implicit_problem, x)
+    implicit_solve_with_initial_guesses!(y, implicit_problem, x; initial_guesses)
 end
 
 ####

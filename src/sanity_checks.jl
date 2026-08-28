@@ -76,8 +76,11 @@ function API_sanity_checks(implicit_problem)
     try
         x = randn(T, n_x)
         y = fill(T(NaN), n_y)
-        @argcheck initial_guess!(y, implicit_problem, x) ≡ nothing
-        @argcheck all(isfinite, y)
+        initial_guesses = get_initial_guesses(implicit_problem, x)
+        for initial_guess in initial_guesses
+            @argcheck initial_guess isa AbstractVector
+            @argcheck all(isfinite, initial_guess)
+        end
         check_initial_guess = nothing
     catch e
         check_initial_guess = (e, catch_backtrace())
@@ -150,7 +153,7 @@ function API_sanity_checks(implicit_problem)
         @argcheck get_statistics(implicit_problem) isa NamedTuple
         check_statistics = nothing
     catch e
-        check_statistics = (e, catch_bactkrace())
+        check_statistics = (e, catch_backtrace())
         @goto done
     end
     # collate and return
