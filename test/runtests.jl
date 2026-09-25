@@ -2,7 +2,6 @@ include("setup.jl")
 
 include("test_utilities.jl")
 include("test_api.jl")
-include("test_solvers.jl")
 include("test_cache.jl")
 include("test_benchmarks.jl")
 

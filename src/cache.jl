@@ -94,18 +94,18 @@ function Base.show(io::IO, problem::CacheImplicitProblem)
           "\n    ∂y∂x hits: $(∂y∂x_hits)")
 end
 
-for f in [:get_dimensions, :get_preferred_eltype, :task_local_buffers, :get_∂y∂x_type]
+for f in [:get_dimensions, :get_preferred_eltype, :get_solution_concept,
+          :task_local_buffers, :get_∂y∂x_type]
     @eval ($f)(implicit_problem::CacheImplicitProblem) = ($f)(implicit_problem.inner_problem)
 end
 
-function initial_guess!(y, problem::CacheImplicitProblem, x)
+function get_initial_guesses(y, problem::CacheImplicitProblem, x)
     (; inner_problem, lockable_dict, nearest_strategy) = problem
+    initial_guesses = get_initial_guesses(inner_problem, x)
     lock(lockable_dict) do dict
         nearest = find_nearest(x, dict, nearest_strategy)
-        if nearest ≡ nothing    # fall back
-            initial_guess!(y, inner_problem, x)
-        else
-            copy!(y, nearest[2].y)
+        if nearest ≢ nothing
+            push!(initial_guesses, copy(nearest[2].y)) # don't share storage
         end
     end
 end

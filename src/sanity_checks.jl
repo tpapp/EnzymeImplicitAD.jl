@@ -26,32 +26,6 @@ Base.@kwdef struct SanityChecks
 end
 
 """
-$(SIGNATURES)
-
-Helper macro for implementing [`API_sanity_checks`](@ref).
-
-Initializes `errorvar = missing`, then sets it to `nothing` after successful evaluation
-of `body`, which is only run when `!terminate`.
-
-If there is an error, it is caught and stored in `errorvar`, and `terminate = true` is set.
-"""
-macro _sanity_check(terminate, errorvar, body)
-    err = esc(errorvar)
-    quote
-        $(err) = missing
-        if !$(esc(terminate))
-            try
-                $(esc(body))
-                $(err) = nothing
-            catch e
-                $(err) = (e, catch_backtrace())
-                $(esc(terminate)) = true
-            end
-        end
-    end
-end
-
-"""
 $(SIGNATURES) → checks
 
 Check that the interface implemented to `implicit_problem` conforms to the expected API.
@@ -61,51 +35,81 @@ The user can access the property `checks.all_ok::Bool`, the rest of the fields c
 used for debugging but are not part of the API.
 """
 function API_sanity_checks(implicit_problem)
-    # dimensions
-    n_x = 0
-    n_y = 0
-    n_r = 0
-    terminate = false
+    # initialize sanity checks
+    check_dimensions = missing
+    check_eltype = missing
+    check_initial_guess = missing
+    check_implicit_solve = missing
+    check_implicit_residuals = missing
+    check_task_local_buffers = missing
+    check_∂y∂x = missing
+    check_statistics = missing
+    local T, n_x, n_y, n_r, x, y
 
-    @_sanity_check terminate check_dimensions begin
-        dimensions = get_dimensions(implicit_problem)
-        (; n_x, n_y, n_r) = dimensions
+    # dimensions
+    try
+        (; n_x, n_y, n_r) = get_dimensions(implicit_problem)
         @argcheck n_x isa Int && n_x > 0
         @argcheck n_y isa Int && n_y > 0
         @argcheck n_r isa Int && n_r > 0
-        @argcheck (n_y == n_r) == is_square(implicit_problem)
+        solution_concept = get_solution_concept(implicit_problem) # test that it is defined
+        if solution_concept ≡ ZeroResiduals()
+            @argcheck n_y == n_r
+        end
+        check_dimensions = nothing
+    catch e
+        check_dimensions = (e, catch_backtrace())
+        @goto done
     end
 
     # eltype
-    T = Union{}
-    @_sanity_check terminate check_eltype begin
+    try
         T = get_preferred_eltype(implicit_problem)
         @argcheck T <: AbstractFloat
+        check_eltype = nothing
+    catch e
+        check_eltype = (e, catch_backtrace())
+        @goto done
     end
 
     # initial guess
-    x = randn(T, n_x)
-    y = fill(T(NaN), n_y)
-    @_sanity_check terminate check_initial_guess begin
-        @argcheck initial_guess!(y, implicit_problem, x) ≡ nothing
-        @argcheck all(isfinite, y)
+    try
+        x = randn(T, n_x)
+        y = fill(T(NaN), n_y)
+        initial_guesses = get_initial_guesses(implicit_problem, x)
+        for initial_guess in initial_guesses
+            @argcheck initial_guess isa AbstractVector
+            @argcheck all(isfinite, initial_guess)
+        end
+        check_initial_guess = nothing
+    catch e
+        check_initial_guess = (e, catch_backtrace())
+        @goto done
     end
 
     # implicit solve
-    @_sanity_check terminate check_implicit_solve begin
+    try
         implicit_solve!(y, implicit_problem, x)
         @argcheck all(isfinite, y)
+        check_implicit_solve = nothing
+    catch e
+        check_implicit_solve = (e, catch_backtrace())
+        @goto done
     end
 
     # implicit residuals
-    r = fill(T(NaN), n_y)
-    @_sanity_check terminate check_implicit_residuals begin
+    try
+        r = fill(T(NaN), n_y)
         @argcheck implicit_residuals!(r, implicit_problem, x, y) ≡ nothing
         @argcheck sum(abs2, r) ≤ √eps(T) # FIXME this is hardcoded, API?
+        check_implicit_residuals = nothing
+    catch e
+        check_implicit_residuals = (e, catch_backtrace())
+        @goto done
     end
 
     # task local buffers
-    @_sanity_check terminate check_task_local_buffers begin
+    try
         buffers = task_local_buffers(implicit_problem)
         function _check_y_buffer(b, n)
             b[1] += one(T)      # check mutability
@@ -117,10 +121,14 @@ function API_sanity_checks(implicit_problem)
         _check_y_buffer(buffers.buffer_y, n_y)
         _check_y_buffer(buffers.buffer_r, n_r)
         _check_y_buffer(buffers.buffer_r2, n_r)
+        check_task_local_buffers = nothing
+    catch e
+        check_task_local_buffers = (e, catch_backtrace())
+        @goto done
     end
 
     # ∂y∂x
-    @_sanity_check terminate check_∂y∂x begin
+    try
         ∂Y∂X = get_∂y∂x_type(implicit_problem)
         @argcheck isconcretetype(∂Y∂X)
         ∂y∂x = calculate_∂y∂x(implicit_problem, x, y)
@@ -134,10 +142,19 @@ function API_sanity_checks(implicit_problem)
         # pullback
         accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x, dy)
         @argcheck all(isfinite, dx)
+        check_∂y∂x = nothing
+    catch e
+        check_∂y∂x = (e, catch_backtrace())
+        @goto done
     end
+
     # statistics
-    @_sanity_check terminate check_statistics begin
+    try
         @argcheck get_statistics(implicit_problem) isa NamedTuple
+        check_statistics = nothing
+    catch e
+        check_statistics = (e, catch_backtrace())
+        @goto done
     end
     # collate and return
     @label done

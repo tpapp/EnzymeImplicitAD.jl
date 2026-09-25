@@ -12,7 +12,6 @@ include("api.jl")
 include("sanity_checks.jl")
 include("benchmarks.jl")
 include("enzyme_ad.jl")
-include("solvers.jl")
 include("cache.jl")
 
 end # module
