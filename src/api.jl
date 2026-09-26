@@ -40,7 +40,7 @@ $(FUNCTIONNAME)(implicit_problem) → solution_concept
 
 Return the solution concept. The default is [`ZeroResiduals`](@ref).
 """
-function get_solution_concept end
+get_solution_concept(problem) = ZeroResiduals()
 
 """
 $(SIGNATURES) → T
@@ -80,7 +80,7 @@ Caller can assume that the dimensions are correct.
 get_initial_guesses(problem, x) = Vector{typeof(x)}()
 
 """
-$(FUNCTIONNAME)((y, implicit_problem, solver, x; initial_guesses) → nothing
+$(FUNCTIONNAME)((y, implicit_problem, x; initial_guesses) → nothing
 
 Solve for `y` with `implicit_problem` at `x`. `initial_guesses` is a vector of
 initial guesses for `y` (may be empty).
