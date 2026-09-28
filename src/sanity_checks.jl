@@ -4,6 +4,8 @@
 
 public API_sanity_checks
 
+using LinearAlgebra: norm
+
 ####
 #### sanity checks
 ####
@@ -33,8 +35,12 @@ Check that the interface implemented to `implicit_problem` conforms to the expec
 Checks are not necessarily comprehensive, and may change without major version changes.
 The user can access the property `checks.all_ok::Bool`, the rest of the fields can be
 used for debugging but are not part of the API.
+
+# Keyword arguments
+
+- `residual_l2norm`: the Euclidean norm used to check the residual
 """
-function API_sanity_checks(implicit_problem)
+function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     # initialize sanity checks
     check_dimensions = missing
     check_eltype = missing
@@ -101,7 +107,7 @@ function API_sanity_checks(implicit_problem)
     try
         r = fill(T(NaN), n_y)
         @argcheck implicit_residuals!(r, implicit_problem, x, y) ≡ nothing
-        @argcheck sum(abs2, r) ≤ √eps(T) # FIXME this is hardcoded, API?
+        @argcheck norm(r, 2) ≤ residual_l2norm
         check_implicit_residuals = nothing
     catch e
         check_implicit_residuals = (e, catch_backtrace())
