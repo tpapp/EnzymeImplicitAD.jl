@@ -9,10 +9,11 @@ public
     get_solution_concept,
     get_preferred_eltype,
     get_statistics,
-    #
+    # solution
     get_initial_guesses,
     implicit_solve!,
     implicit_residuals!,
+    # helpers
     task_local_buffers,
     calculate_∂y∂x,
     calculate_pushforward!,
