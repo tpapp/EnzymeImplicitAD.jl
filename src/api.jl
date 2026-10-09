@@ -11,6 +11,8 @@ public
     get_statistics,
     # solution
     get_initial_guesses,
+    implicit_solve_with_initial_guesses!,
+    NonSolutionAD,
     implicit_solve!,
     implicit_residuals!,
     # helpers
@@ -24,7 +26,7 @@ public
 ####
 
 """
-$(FUNCTIONNAME)(implicit_problem) → (; n_x, n_y, n_r)
+`$(FUNCTIONNAME)(implicit_problem)` → `(; n_x, n_y, n_r)`
 
 Return the dimensions of the problem.
 """
@@ -37,14 +39,14 @@ Solution concept: for a given `x`, `y` is the solution which makes residuals `r`
 struct ZeroResiduals end
 
 """
-$(FUNCTIONNAME)(implicit_problem) → solution_concept
+`$(FUNCTIONNAME)(implicit_problem)` → `solution_concept`
 
 Return the solution concept. The default is [`ZeroResiduals`](@ref).
 """
 get_solution_concept(problem) = ZeroResiduals()
 
 """
-$(SIGNATURES) → T
+`$(SIGNATURES)` → `T`
 
 Return the preferred element type for a problem. This is used for buffers and interim
 quantities, and should allow for enough precision even with input/output arrays that
@@ -55,7 +57,7 @@ The default is `Float64`.
 get_preferred_eltype(implicit_problem) = Float64
 
 """
-$(SIGNATURES) → statistics::NamedTuple
+`$(SIGNATURES)` → `statistics::NamedTuple`
 
 Return various statistics that are accumulated during calls, that may help the user
 evaluate and tune algorithms.
@@ -71,7 +73,7 @@ get_statistics(problem) = (;)
 ####
 
 """
-$(SIGNATURES) → AbstractVector{<:AbstractVector{eltype(x)}}
+`$(SIGNATURES)` → `AbstractVector{<:AbstractVector{eltype(x)}}`
 
 Provide initial guess(es) for the problem given `x`, as a vector of vectors. May be
 empty. The most useful initial guesses should come first.
@@ -81,23 +83,35 @@ Caller can assume that the dimensions are correct.
 get_initial_guesses(problem, x) = Vector{typeof(x)}()
 
 """
-$(FUNCTIONNAME)((y, implicit_problem, x; initial_guesses) → nothing
+`$(FUNCTIONNAME)(y, implicit_problem, x; initial_guesses)` → `success::Bool`
 
 Solve for `y` with `implicit_problem` at `x`. `initial_guesses` is a vector of
 initial guesses for `y` (may be empty).
 
-The result is put in `y`.
+When `success`, the result is put in `y`. When `!success`, the contents of `y` are
+undefined.
 
 Methods are implemented *outside* this package.
 """
 function implicit_solve_with_initial_guesses! end
 
 """
-$(SIGNATURES) → nothing
+An error that is thrown when trying to AD unsuccessful solutions.
+"""
+@concrete struct NonSolutionAD <: Exception
+    implicit_problem
+    x
+end
+
+"""
+`$(SIGNATURES)` → `success::Bool`
 
 Solve the implicit problem ``g(x, y(x)) = 0`` at `x`, overwriting `y` with ``y(x)`` result.
 
-Return `nothing`. See [`implicit_residuals!`](@ref), which implements ``g`` above.
+When `success`, the result is put in `y`. When `!success`, the contents of `y` are
+undefined.
+
+See [`implicit_residuals!`](@ref), which implements ``g`` above.
 
 !!! NOTE
     Don't specialize this method, rather [`get_initial_guesses`](@ref),
@@ -114,7 +128,7 @@ end
 ####
 
 """
-$(FUNCTIONNAME)(r, implicit_problem, x, y) → nothing
+`$(FUNCTIONNAME)(r, implicit_problem, x, y)` → `nothing`
 
 Calculate the implicit residuals ``r = g(x, y)``, overwriting `r`.
 
@@ -130,7 +144,7 @@ the residuals `r` are “approximately” zero, but this is not checked.
 function implicit_residuals! end
 
 """
-$(SIGNATURES) → (; buffer_y1, buffer_y2, buffer_y3)
+`$(SIGNATURES)` → `(; buffer_y1, buffer_y2, buffer_y3)`
 
 Return an object which contains the following buffers, which are accessible as
 properties. Each is a vector, with lengths consistent with the corresponding dimension
@@ -161,7 +175,7 @@ function Base.show(io::IO, ∂y∂x::∂Y∂X)
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES) → T`
 
 The return type of [`calculate_∂y∂x`](@ref).
 
@@ -177,7 +191,7 @@ function get_∂y∂x_type(implicit_problem)
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `∂y∂x`
 
 Return an object `∂y∂x` that acts like a Jacobian matrix when pre- or post-multiplied by
 a conformable vector, via the methods [`calculate_pushforward!`](@ref) and
@@ -187,6 +201,8 @@ The return type should depend only on `implicit_problem`, and should be consiste
 [`get_∂y∂x_type`]((@ref).
 
 The implementation is free to ignore `y`, eg if it can obtain a solution from `x`.
+However, this function should only be called when there is a solution (`success ==
+true`), otherwise consequences are undefined.
 """
 function calculate_∂y∂x(implicit_problem, x, y)
     (; buffer_y, buffer_r, buffer_r2) = task_local_buffers(implicit_problem)
@@ -195,7 +211,7 @@ function calculate_∂y∂x(implicit_problem, x, y)
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES) → nothing`
 
 Calculate the pushforward `dy = ∂y∂x ⋅ dx` into `dy`.
 
@@ -211,7 +227,7 @@ function calculate_pushforward!(dy, implicit_problem, x, y, ∂y∂x::∂Y∂X, 
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `nothing`
 
 Accumulate the pullback `dy ⋅ ∂y∂x` into `dx`.
 

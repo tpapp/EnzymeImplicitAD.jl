@@ -28,9 +28,10 @@ Base.@kwdef struct SanityChecks
 end
 
 """
-$(SIGNATURES) → checks
+`$(SIGNATURES)` → `checks::SanityChecks`
 
 Check that the interface implemented to `implicit_problem` conforms to the expected API.
+See [`SanityChecks`](@ref), which prints as a nice summary.
 
 Checks are not necessarily comprehensive, and may change without major version changes.
 The user can access the property `checks.all_ok::Bool`, the rest of the fields can be
@@ -50,7 +51,7 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     check_task_local_buffers = missing
     check_∂y∂x = missing
     check_statistics = missing
-    local T, n_x, n_y, n_r, x, y
+    local T, n_x, n_y, n_r, x, y, success::Bool
 
     # dimensions
     try
@@ -95,8 +96,11 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
 
     # implicit solve
     try
-        implicit_solve!(y, implicit_problem, x)
-        @argcheck all(isfinite, y)
+        success = implicit_solve!(y, implicit_problem, x)
+        @argcheck success isa Bool
+        if success
+            @argcheck all(isfinite, y)
+        end
         check_implicit_solve = nothing
     catch e
         check_implicit_solve = (e, catch_backtrace())
@@ -107,7 +111,9 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     try
         r = fill(T(NaN), n_y)
         @argcheck implicit_residuals!(r, implicit_problem, x, y) ≡ nothing
-        @argcheck norm(r, 2) ≤ residual_l2norm
+        if success
+            @argcheck norm(r, 2) ≤ residual_l2norm
+        end
         check_implicit_residuals = nothing
     catch e
         check_implicit_residuals = (e, catch_backtrace())

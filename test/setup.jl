@@ -47,7 +47,7 @@ function E.implicit_solve_with_initial_guesses!(y::AbstractVector{T}, P::LinearP
     (; A, luB) = P
     mul!(y, A, x, -one(T), zero(T))
     ldiv!(luB, y)
-    nothing
+    true
 end
 
 function E.implicit_residuals!(r::AbstractVector{T}, P::LinearProblem, x, y) where T
