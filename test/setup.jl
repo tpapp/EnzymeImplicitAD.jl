@@ -42,14 +42,12 @@ function E.get_dimensions(P::LinearProblem)
     (; n_x, n_y, n_r = n_y)
 end
 
-E.get_solution_concept(P::LinearProblem) = E.ZeroResiduals()
-
 function E.implicit_solve_with_initial_guesses!(y::AbstractVector{T}, P::LinearProblem{true},
                                                x; initial_guesses) where T
     (; A, luB) = P
     mul!(y, A, x, -one(T), zero(T))
     ldiv!(luB, y)
-    nothing
+    true
 end
 
 function E.implicit_residuals!(r::AbstractVector{T}, P::LinearProblem, x, y) where T
