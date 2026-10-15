@@ -29,10 +29,13 @@ E.implicit_residuals!(r, ::MayFail, x, y) = (r[1] = x[1] - y[1]; nothing)
     dy = copy(y)
     # failure
     @test !(@inferred(E.implicit_solve!(y, f, x)))
-    @test_throws E.NonSolutionAD autodiff(ForwardWithPrimal, E.implicit_solve!,
-                                          Duplicated(y, dy), Const(f), Duplicated(x, dx))
-    @test_throws E.NonSolutionAD autodiff(ReverseWithPrimal, E.implicit_solve!, Duplicated(y, dy),
-                                          Const(f), Duplicated(x, dx))
+    @inferred autodiff(ForwardWithPrimal, E.implicit_solve!, Duplicated(y, dy), Const(f),
+                       Duplicated(x, dx))
+    @test all(isnan, dy)
+    dy .= 1.0
+    @inferred autodiff(ReverseWithPrimal, E.implicit_solve!, Duplicated(y, dy), Const(f),
+                       Duplicated(x, dx))
+    @test all(isnan, dx)
     # success
     x[1] = 1.0
     @test @inferred(E.implicit_solve!(y, f, x))

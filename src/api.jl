@@ -12,7 +12,6 @@ public
     # solution
     get_initial_guesses,
     implicit_solve_with_initial_guesses!,
-    NonSolutionAD,
     implicit_solve!,
     implicit_residuals!,
     # helpers
@@ -96,20 +95,13 @@ Methods are implemented *outside* this package.
 function implicit_solve_with_initial_guesses! end
 
 """
-An error that is thrown when trying to AD unsuccessful solutions.
-"""
-@concrete struct NonSolutionAD <: Exception
-    implicit_problem
-    x
-end
-
-"""
 `$(SIGNATURES)` → `success::Bool`
 
 Solve the implicit problem ``g(x, y(x)) = 0`` at `x`, overwriting `y` with ``y(x)`` result.
 
-When `success`, the result is put in `y`. When `!success`, the contents of `y` are
-undefined.
+When `success`, the result is put in `y`. When `!success`, the contents of `y` (and,
+consequently, the pullback/pushforward in AD) are undefined. Implementations are
+encouraged, but not required, to fill the latter with `NaN`s.
 
 See [`implicit_residuals!`](@ref), which implements ``g`` above.
 

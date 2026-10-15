@@ -19,11 +19,11 @@ function forward(_config::FwdConfig{NP}, ::Const{typeof(implicit_solve!)},
         if Dy isa Duplicated
             make_zero!(Dy.dval)
         end
-    elseif !success
-        throw(NonSolutionAD(implicit_problem, x))
-    else
+    elseif success
         ∂y∂x = calculate_∂y∂x(implicit_problem, x, y)
         calculate_pushforward!(Dy.dval, implicit_problem, x, y, ∂y∂x, Dx.dval)
+    else
+        Dy.dval .= NaN
     end
     NP ? success : nothing
 end
@@ -45,11 +45,12 @@ function reverse(_config::RevConfigWidth{1}, ::Const{typeof(implicit_solve!)},
     implicit_problem = ℐ.val
     x = something(tape.x, Dx.val)
     y = something(tape.y, Dy.val)
-    if !tape.success
-        throw(NonSolutionAD(implicit_problem, x))
+    if tape.success
+        ∂y∂x = calculate_∂y∂x(implicit_problem, x, y)
+        accumulate_pullback!(Dx.dval, implicit_problem, x, y, ∂y∂x, Dy.dval)
+    else
+        Dx.dval .= NaN
     end
-    ∂y∂x = calculate_∂y∂x(implicit_problem, x, y)
-    accumulate_pullback!(Dx.dval, implicit_problem, x, y, ∂y∂x, Dy.dval)
     make_zero!(Dy.dval)         # zero out y's shadow
     nothing, nothing, nothing
 end
