@@ -104,7 +104,13 @@ function Base.show(io::IO, benchmarks::Benchmarks)
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `benchmarks::Benchmarks`
+
+Benchmark and stress test `implicit_problem`.
+
+# Keyword arguments and defaults
+
+FIXME
 """
 function benchmark_and_stresstest(implicit_problem;
                                   count = 1000,

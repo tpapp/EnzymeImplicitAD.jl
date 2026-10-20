@@ -17,6 +17,8 @@ only be modified when that lock is acquired. See accessor functions below.
 mutable struct CacheEntry{Y,∂Y∂X}
     "timestamp"
     timestamp::UInt64
+    "success indicator"
+    success::Bool
     "the cached solution"
     const y::Y
     "the cached derivative"
@@ -28,7 +30,7 @@ end
 ####
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `key => value`, or `nothing`
 
 Find the “nearest” key in `dict` according to `strategy`. Will return a `key => value`
 pair or `nothing`.
@@ -122,7 +124,7 @@ function implicit_residuals!(r, implicit_problem::CacheImplicitProblem, x, y)
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `implicit_problem`
 
 Wrap an implicit problem so that `y` and `∂y∂x` are cached.
 
@@ -136,7 +138,7 @@ function cache_implicit_problem(inner_problem::P;
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `nothing`
 
 Cull dictionary to `min_size`, keeping the last `timestamp`s.
 
@@ -159,11 +161,11 @@ _ensure_typed_copy(::Type{X}, x::X) where X = copy(x)
 _ensure_typed_copy(::Type{_X}, x::X) where {_X,X} = _X(x)
 
 function _new_cache_entry(implicit_problem::CacheImplicitProblem{Y,∂Y∂X},
-                          x, timestamp::UInt64, internal_y::Y,
+                          success::Bool, x, timestamp::UInt64, internal_y::Y,
                           ∂y∂x::Union{Nothing,∂Y∂X} = nothing) where {Y,∂Y∂X}
     (; lockable_dict, min_size, max_size) = implicit_problem
     internal_x = _ensure_typed_copy(Y, x)
-    entry = CacheEntry{Y,∂Y∂X}(timestamp, internal_y, ∂y∂x)
+    entry = CacheEntry{Y,∂Y∂X}(timestamp, success, internal_y, ∂y∂x)
     lock(lockable_dict) do dict
         dict[internal_x] = entry
         length(dict) > max_size && _cull!(dict, min_size)
@@ -188,16 +190,17 @@ function implicit_solve!(y, implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, 
     if entry ≡ nothing
         (; n_y) = get_dimensions(inner_problem)
         internal_y = Vector{get_preferred_eltype(inner_problem)}(undef, n_y)
-        implicit_solve!(internal_y, inner_problem, x)
-        _new_cache_entry(implicit_problem, x, timestamp, internal_y)
+        success = implicit_solve!(internal_y, inner_problem, x)
+        _new_cache_entry(implicit_problem, success, x, timestamp, internal_y)
         copy!(y, internal_y)
         update!(y_hits, false)
+        success
     else
         copy!(y, entry.y)       # no lock needed as `y` is constant within `entry`
         _update_timestamp(lockable_dict, entry, timestamp)
         update!(y_hits, true)
+        entry.success
     end
-    nothing
 end
 
 function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, x, y) where {Y,∂Y∂X}
@@ -206,8 +209,9 @@ function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, 
     entry = _entry_or_nothing(lockable_dict, x)
     if entry ≡ nothing
         ∂y∂x = calculate_∂y∂x(inner_problem, x, y)
-        entry = _new_cache_entry(implicit_problem, x, timestamp,
-                                 _ensure_typed_copy(Y, y), ∂y∂x)
+        entry = _new_cache_entry(implicit_problem,
+                                 true, # NOTE: calling this function implicitly assumes success
+                                 x, timestamp, _ensure_typed_copy(Y, y), ∂y∂x)
         update!(∂y∂x_hits, false)
     else
         (; ∂y∂x) = entry

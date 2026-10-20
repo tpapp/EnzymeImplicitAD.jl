@@ -10,9 +10,9 @@
 const BUFFER_DOCS = "`buffer_…` variables are for temporary storage, may be overwritten, their initial contents can be arbitrary. It is assumed that they are not shared between tasks."
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `J`
 
-Calculate the Jacobian `J = ∂g/∂y`, at `x` and `y`, which is assumed to be a valid
+Calculate the Jacobian ``J = ∂g/∂y``, at `x` and `y`, which is assumed to be a valid
 solution (not checked).
 
 $(BUFFER_DOCS)
@@ -38,7 +38,7 @@ function _calculate_∂g∂y(implicit_problem, x::AbstractVector, y::AbstractVec
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `nothing`
 
 Calculate `∂g/∂x ⋅ v` and put the result in the first argument, using forward mode in Enzyme.
 
@@ -57,7 +57,7 @@ function _inplace_∂g∂x_v!(Jv, v, implicit_problem, x, y, buffer_r)
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `nothing`
 
 Calculate `v ⋅ ∂g/∂x` and put the result in the first argument, using reverse mode in Enzyme.
 
@@ -79,7 +79,7 @@ end
 
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `nothing`
 
 Helper function to make buffers of the right dimension. Not part of the API. Return type
 is consistent with `[_make_buffers_type](@ref)`.
@@ -90,7 +90,7 @@ function _make_buffers(T; n_x::Int, n_y::Int, n_r::Int)
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `T`
 
 The return type of [`_make_buffers`](@ref).
 """
@@ -122,7 +122,7 @@ function Base.show(io::IO, om::Lockable{<:OnlineMean})
 end
 
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `accumulator`
 
 Return a thread-safe accumulator that supportes [`update!`](@ref) and [`get_mean`](@ref).
 The sum is accumulated in a value of type `T`.
@@ -140,8 +140,12 @@ end
 
 get_mean(om::Lockable{<:OnlineMean}) = @lock om om[].sum / om[].count
 
+####
+#### namedtuple utilities
+####
+
 """
-$(SIGNATURES)
+`$(SIGNATURES)` → `nothing`
 
 Merge two `NamedTuple`s, throw an error if they have names in common.
 """
