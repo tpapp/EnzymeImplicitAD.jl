@@ -104,7 +104,7 @@ end
 ####
 
 """
-Implement a thread-safe online mean. Use [`online_mean`](@ref) as the entry point.
+An online mean implementation. Use [`online_mean`](@ref) as the entry point.
 """
 mutable struct OnlineMean{T}
     count::UInt64
@@ -112,33 +112,27 @@ mutable struct OnlineMean{T}
     OnlineMean{T}() where T = new(0, zero(T))
 end
 
-function Base.show(io::IO, om::Lockable{<:OnlineMean})
-    @lock om begin
-        (; sum, count) = om[]
-        print(io, "« $(sum) / $(count) ≈ ",
-              count == 0 ? "undefined" : "$(round(sum / count; digits = 4))",
-              " »")
-    end
+function Base.show(io::IO, om::OnlineMean)
+    (; sum, count) = om
+    print(io, "« $(sum) / $(count) ≈ ",
+          count == 0 ? "undefined" : "$(round(sum / count; digits = 4))", " »")
 end
 
 """
 `$(SIGNATURES)` → `accumulator`
 
-Return a thread-safe accumulator that supportes [`update!`](@ref) and [`get_mean`](@ref).
+Return an accumulator that supportes [`update!`](@ref) and [`get_mean`](@ref).
 The sum is accumulated in a value of type `T`.
 """
-online_mean(::Type{T}) where T = Lockable(OnlineMean{T}())
+online_mean(::Type{T}) where T = OnlineMean{T}()
 
-function update!(om::Lockable{<:OnlineMean{T}}, x) where T
-    Tx = T(x)
-    @lock om begin
-        om[].count += 1
-        om[].sum += T(x)
-    end
+function update!(om::OnlineMean{T}, x) where T
+    om.count += 1
+    om.sum += T(x)
     nothing
 end
 
-get_mean(om::Lockable{<:OnlineMean}) = @lock om om[].sum / om[].count
+get_mean(om::OnlineMean) = om.sum / om.count
 
 ####
 #### namedtuple utilities
