@@ -107,10 +107,11 @@ end
 An online mean implementation. Use [`online_mean`](@ref) as the entry point.
 """
 mutable struct OnlineMean{T}
-    count::UInt64
+    count::Int
     sum::T
-    OnlineMean{T}() where T = new(0, zero(T))
 end
+
+copy_mutable(om::OnlineMean) = OnlineMean(om.count, om.sum)
 
 function Base.show(io::IO, om::OnlineMean)
     (; sum, count) = om
@@ -124,7 +125,7 @@ end
 Return an accumulator that supportes [`update!`](@ref) and [`get_mean`](@ref).
 The sum is accumulated in a value of type `T`.
 """
-online_mean(::Type{T}) where T = OnlineMean{T}()
+online_mean(::Type{T}) where T = OnlineMean(0, zero(T))
 
 function update!(om::OnlineMean{T}, x) where T
     om.count += 1

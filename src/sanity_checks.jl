@@ -19,6 +19,7 @@ error-backtrace pair.
 Base.@kwdef struct SanityChecks
     check_dimensions
     check_eltype
+    check_copy_mutable
     check_initial_guess
     check_implicit_solve
     check_implicit_residuals
@@ -45,6 +46,7 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     # initialize sanity checks
     check_dimensions = missing
     check_eltype = missing
+    check_copy_mutable = missing
     check_initial_guess = missing
     check_implicit_solve = missing
     check_implicit_residuals = missing
@@ -76,6 +78,16 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
         check_eltype = nothing
     catch e
         check_eltype = (e, catch_backtrace())
+        @goto done
+    end
+
+    # copy_mutable
+    try
+        c = copy_mutable(implicit_problem)
+        @argcheck typeof(c) == typeof(implicit_problem)
+        check_copy_mutable = nothing
+    catch e
+        check_copy_mutable = (e, catch_backtrace())
         @goto done
     end
 
@@ -170,9 +182,9 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     end
     # collate and return
     @label done
-    SanityChecks(; check_dimensions, check_eltype, check_initial_guess, check_implicit_solve,
-                 check_implicit_residuals, check_get_buffers, check_∂y∂x,
-                 check_statistics)
+    SanityChecks(; check_dimensions, check_eltype, check_copy_mutable, check_initial_guess,
+                 check_implicit_solve, check_implicit_residuals, check_get_buffers,
+                 check_∂y∂x, check_statistics)
 end
 
 function Base.getproperty(checks::SanityChecks, key::Symbol)

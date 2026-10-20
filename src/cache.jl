@@ -57,36 +57,21 @@ end
 ####
 
 # NOTE: parametrization assumes `x` and `y` values have the same type `Y`
-@concrete struct CacheImplicitProblem{Y,∂Y∂X}
+struct CacheImplicitProblem{Y,∂Y∂X,I,O,N}
     "the inner (parent) problem"
-    inner_problem
+    inner_problem::I
     "target size after culling the cache"
     min_size::Int
     "maximum size for cache"
     max_size::Int
     "dictionary of previous values; no `x` or `y` values may be leaked outside."
-    dict
+    dict::Dict{Y,CacheEntry{Y,∂Y∂X}}
     "statistics for finding `y` values in cache"
-    y_hits
+    y_hits::O
     "statistics for finding `∂y∂x` values in cache"
-    ∂y∂x_hits
+    ∂y∂x_hits::O
     "strategy for find_nearest"
-    nearest_strategy
-    function CacheImplicitProblem(inner_problem, min_size::Int, max_size::Int;
-                                  nearest_strategy = Distances.Euclidean())
-        @argcheck 0 < min_size < max_size
-        T = get_preferred_eltype(inner_problem)
-        Y = Vector{T}
-        ∂Y∂X = get_∂y∂x_type(inner_problem)
-        dict = Dict{Y,CacheEntry{Y,∂Y∂X}}()
-        y_hits = online_mean(UInt64)
-        ∂y∂x_hits = online_mean(UInt64)
-        new{Y,∂Y∂X,typeof(inner_problem),typeof(dict),
-            typeof(y_hits),typeof(∂y∂x_hits),
-            typeof(nearest_strategy)}(inner_problem, min_size, max_size, dict,
-                                      y_hits, ∂y∂x_hits,
-                                      nearest_strategy)
-    end
+    nearest_strategy::N
 end
 
 function Base.show(io::IO, problem::CacheImplicitProblem)
@@ -94,6 +79,13 @@ function Base.show(io::IO, problem::CacheImplicitProblem)
     print(io, "caching [$(min_size),$(max_size)] evaluations of $(inner_problem)",
           "\n    y hits: $(y_hits)",
           "\n    ∂y∂x hits: $(∂y∂x_hits)")
+end
+
+function copy_mutable(problem::CacheImplicitProblem)
+    (; inner_problem, min_size, max_size, dict, y_hits, ∂y∂x_hits,
+     nearest_strategy) = problem
+    CacheImplicitProblem(copy_mutable(inner_problem), min_size, max_size, copy(dict),
+                         copy_mutable(y_hits), copy_mutable(∂y∂x_hits), nearest_strategy)
 end
 
 for f in [:get_dimensions, :get_preferred_eltype, :get_solution_concept,
@@ -131,9 +123,14 @@ Specficially, at least `min_size` and at most `max_size` most recently used valu
 
 Supported statistics: those of the inner problem, `average_y_hit`, `average_∂y∂x_hit`.
 """
-function cache_implicit_problem(inner_problem::P;
-                                min_size::Int = 10, max_size = 2 * min_size) where P
-    CacheImplicitProblem(inner_problem, min_size, max_size)
+function cache_implicit_problem(inner_problem;
+                                min_size::Int = 10, max_size::Int = 2 * min_size,
+                                nearest_strategy = Distances.Euclidean())
+    @argcheck 0 < min_size < max_size
+    Y = Vector{get_preferred_eltype(inner_problem)}
+    CacheImplicitProblem(inner_problem, min_size, max_size,
+                         Dict{Y,CacheEntry{Y,get_∂y∂x_type(inner_problem)}}(),
+                         online_mean(UInt64), online_mean(UInt64), nearest_strategy)
 end
 
 """
@@ -170,7 +167,7 @@ function _new_cache_entry!(implicit_problem::CacheImplicitProblem{Y,∂Y∂X},
     entry
 end
 
-function implicit_solve!(y, implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, x) where {Y,∂Y∂X}
+function implicit_solve!(y, implicit_problem::CacheImplicitProblem, x)
     (; inner_problem, dict, y_hits) = implicit_problem
     timestamp = time_ns()
     entry = get(dict, x, nothing)
@@ -190,7 +187,7 @@ function implicit_solve!(y, implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, 
     end
 end
 
-function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y,∂Y∂X}, x, y) where {Y,∂Y∂X}
+function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, y) where Y
     (; inner_problem, dict, ∂y∂x_hits) = implicit_problem
     timestamp = time_ns()
     entry = get(dict, x, nothing)

@@ -10,6 +10,7 @@ public
     get_preferred_eltype,
     get_statistics,
     get_buffers,
+    copy_mutable,
     # solution
     get_initial_guesses,
     implicit_solve_with_initial_guesses!,
@@ -66,6 +67,8 @@ evaluate and tune algorithms.
     they don't overwrite. See [`merge_disjoint`](@ref).
 """
 get_statistics(problem) = (;)
+
+copy_mutable(problem) = problem
 
 ####
 #### solver
@@ -157,8 +160,8 @@ function get_buffers(implicit_problem)
     _make_buffers(get_preferred_eltype(implicit_problem); get_dimensions(implicit_problem)...)
 end
 
-@concrete struct ∂Y∂X
-    ∂g∂y_factor
+struct ∂Y∂X{T}
+    ∂g∂y_factor::T
 end
 
 function Base.show(io::IO, ∂y∂x::∂Y∂X)
