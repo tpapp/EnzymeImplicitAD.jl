@@ -7,25 +7,17 @@
 #### Buffers need to be provided explicitly, higher-level API manages them.
 ####
 
-const BUFFER_DOCS = "`buffer_…` variables are for temporary storage, may be overwritten, their initial contents can be arbitrary. It is assumed that they are not shared between tasks."
+"Default chunks for calculating the Jacobian when the dimensions are larger than the threshold."
+const AD_CHUNKS = 4
 
-"""
-`$(SIGNATURES)` → `J`
-
-Calculate the Jacobian ``J = ∂g/∂y``, at `x` and `y`, which is assumed to be a valid
-solution (not checked).
-
-$(BUFFER_DOCS)
-"""
-function _calculate_∂g∂y(implicit_problem, x::AbstractVector, y::AbstractVector{T},
-                         buffer_y, buffer_r, buffer_r2) where T
+function _calculate_∂g∂y_onecol!(J, implicit_problem, x::AbstractVector, y::AbstractVector{T},
+                                 buffers) where T
     # aliases for buffers
-    dy = buffer_y
-    r = buffer_r
-    dr = buffer_r2
+    (; r) = buffers
+    dr = buffers.dr[1]
+    dy = buffers.dy[1]
     # calculate Jacobian column by column
     make_zero!(dy)
-    J = similar(y, T, axes(r, 1), axes(y, 1))
     for i in axes(y, 1)
         make_zero!(dr)          # FIXME do I need this?
         dy[i] = one(T)
@@ -37,12 +29,63 @@ function _calculate_∂g∂y(implicit_problem, x::AbstractVector, y::AbstractVec
     J
 end
 
+function _calculate_∂g∂y_chunked!(J, implicit_problem, x::AbstractVector, y::AbstractVector{T},
+                                  chunks::Val{C}, buffers) where {T,C}
+    (; n_y) = get_dimensions(implicit_problem)
+    @assert C ≤ n_y
+    (; r, dy, dr) = buffers
+    @assert length(dy) ≤ C
+    @assert length(dr) ≤ C
+    make_zero!(dy)
+    function _set_dy(i, v)
+        for j in 1:C
+            dy[j][i-1+j] = v
+        end
+        nothing
+    end
+    function _calc_J(i)
+        make_zero!(dr)
+        _set_dy(i, one(T))
+        autodiff(Forward, implicit_residuals!, BatchDuplicated(r, dr),
+                 Const(implicit_problem), Const(x), BatchDuplicated(y, dy))
+        for j in 1:C
+            J[:, i-1+j] .= dr[j]
+        end
+        _set_dy(i, zero(T))
+    end
+    for i in 1:C:n_y
+        i = min(i, n_y - C + 1)   # overlap
+        _calc_J(i)
+    end
+    J
+end
+
+"""
+`$(SIGNATURES)` → `J`
+
+Calculate the Jacobian ``J = ∂g/∂y``, at `x` and `y`, which is assumed to be a valid
+solution (not checked).
+
+See [`get_buffers`](@ref) about `buffers`.
+"""
+function _calculate_∂g∂y(implicit_problem, x, y, buffers)
+    @assert !Base.has_offset_axes(x, y)
+    (; n_y, n_r) = get_dimensions(implicit_problem)
+    J = similar(y, n_r, n_y)
+    if n_y ≥ 8
+        ∂g∂y = _calculate_∂g∂y_chunked!(J, implicit_problem, x, y, Val(AD_CHUNKS), buffers)
+    else
+        ∂g∂y = _calculate_∂g∂y_onecol!(J, implicit_problem, x, y, buffers)
+    end
+    J
+end
+
 """
 `$(SIGNATURES)` → `nothing`
 
 Calculate `∂g/∂x ⋅ v` and put the result in the first argument, using forward mode in Enzyme.
 
-$(BUFFER_DOCS)
+See [`get_buffers`](@ref) about `buffer_r`.
 
 ### Expected dimensions (not checked):
 
@@ -63,7 +106,7 @@ Calculate `v ⋅ ∂g/∂x` and put the result in the first argument, using reve
 
 **Caution:** may modify `v`.
 
-$(BUFFER_DOCS)
+See [`get_buffers`](@ref) about `buffer_r`.
 
 ### Expected dimensions (not checked):
 
@@ -75,28 +118,6 @@ function _inplace_v_∂g∂x!(vJ, v, implicit_problem, x, y, buffer_r)
     autodiff(Reverse, implicit_residuals!, Duplicated(buffer_r, v), Const(implicit_problem),
              Duplicated(x, vJ), Const(y))
     nothing
-end
-
-
-"""
-`$(SIGNATURES)` → `nothing`
-
-Helper function to make buffers of the right dimension. Not part of the API. Return type
-is consistent with `[_make_buffers_type](@ref)`.
-"""
-function _make_buffers(T; n_x::Int, n_y::Int, n_r::Int)
-    _v(n) = Vector{T}(undef, n)
-    (; buffer_y = _v(n_y), buffer_x = _v(n_x), buffer_r = _v(n_r), buffer_r2 = _v(n_r))
-end
-
-"""
-`$(SIGNATURES)` → `T`
-
-The return type of [`_make_buffers`](@ref).
-"""
-function _make_buffers_type(T)
-    V = Vector{T}
-    @NamedTuple{buffer_y::V,buffer_x::V,buffer_r::V,buffer_r2::V}
 end
 
 ####
