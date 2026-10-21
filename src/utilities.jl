@@ -115,8 +115,8 @@ See [`get_buffers`](@ref) about `buffer_r`.
 """
 function _inplace_v_∂g∂x!(vJ, v, implicit_problem, x, y, buffer_r)
     make_zero!(vJ)              # FIXME: do I need this?
-    autodiff(Reverse, implicit_residuals!, Duplicated(buffer_r, v), Const(implicit_problem),
-             Duplicated(x, vJ), Const(y))
+    autodiff(Reverse, implicit_residuals!, Const,
+             Duplicated(buffer_r, v), Const(implicit_problem), Duplicated(x, vJ), Const(y))
     nothing
 end
 
