@@ -2,12 +2,17 @@
 ##### utilities
 #####
 
+public AD_CHUNKS
+
 ####
 #### Primitives for calculating Jacobians and Jacobian-vector products using Enzyme.
 #### Buffers need to be provided explicitly, higher-level API manages them.
 ####
 
-"Default chunks for calculating the Jacobian when the dimensions are larger than the threshold."
+"""
+Default chunks for calculating the Jacobian when the dimensions are larger than the
+threshold.
+"""
 const AD_CHUNKS = 4
 
 function _calculate_∂g∂y_onecol!(J, implicit_problem, x::AbstractVector, y::AbstractVector{T},
@@ -172,4 +177,28 @@ function merge_disjoint(a::NamedTuple, b::NamedTuple)
             join(intersect(keys(a), keys(b)), ", ")))
     end
     ab
+end
+
+####
+#### check whether independent copies make sense
+####
+
+function _is_recursively_immutable(::Union{Bool,Int,Base.IEEEFloat,Base.BitInteger,String,
+                                           Symbol}) # whitelist
+    true
+end
+
+@generated function _is_recursively_immutable_struct(x::T) where T
+    n = fieldcount(T)
+    n == 0 && return :(true)
+    foldr((a, b) -> :($a && $b),
+          [:(isdefined(x, $i) && _is_recursively_immutable(getfield(x, $i))) for i in 1:n])
+end
+
+function _is_recursively_immutable(x::T) where T
+    if isstructtype(T)
+        ismutabletype(T) && _is_recursively_immutable_struct(x)
+    else
+        false
+    end
 end

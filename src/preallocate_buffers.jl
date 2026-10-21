@@ -40,3 +40,7 @@ A wrapper that preallocates buffers.
 function preallocate_buffers(implicit_problem)
     PreallocateBuffers(implicit_problem, get_buffers(implicit_problem))
 end
+
+function independent_copy(implicit_problem::PreallocateBuffers)
+    preallocate_buffers(independent_copy(implicit_problem.inner_problem))
+end

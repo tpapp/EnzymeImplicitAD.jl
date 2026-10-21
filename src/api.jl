@@ -72,9 +72,19 @@ get_statistics(problem) = (;)
 $(SIGNATURES)
 
 Make a copy of problem that functionally equivalent but independent, ie safe for using
-in another thread.
+in another thread. Specifically, this should ensure that all the functions in the API of
+this package are safe to use concurrently on independent copies.
+
+The generic method makes an effort to just return recursively immutable values as is,
+but it may just be too narrow. If it fails, define a method for the type.
 """
-independent_copy(problem) = problem
+function independent_copy(x::T) where T
+    if _is_recursively_immutable(x)
+        x
+    else
+        error("Define a method for `independent_copy` for types $T.")
+    end
+end
 
 ####
 #### solver
@@ -159,7 +169,7 @@ in [`get_dimensions`](@ref).
 
 The element type of buffers should be consistent with [`get_preferred_eltype`](@ref).
 
-The hardcoded constant is available in [`AD_CHUNKS`](@ref).
+The hardcoded constant $(AD_CHUNKS) is available as [`AD_CHUNKS`](@ref).
 
 The fallback method reallocates these for each use, implementations can provide reusable
 buffers. However, the buffers should not be used concurrently, see [`independent_copy`](@ref).
