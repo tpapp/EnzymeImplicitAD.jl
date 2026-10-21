@@ -19,7 +19,7 @@ error-backtrace pair.
 @kwdef struct SanityChecks
     check_dimensions
     check_eltype
-    check_threadsafe_copy
+    check_independent_copy
     check_initial_guess
     check_implicit_solve
     check_implicit_residuals
@@ -46,7 +46,7 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     # initialize sanity checks
     check_dimensions = missing
     check_eltype = missing
-    check_threadsafe_copy = missing
+    check_independent_copy = missing
     check_initial_guess = missing
     check_implicit_solve = missing
     check_implicit_residuals = missing
@@ -81,13 +81,13 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
         @goto done
     end
 
-    # threadsafe_copy
+    # independent_copy
     try
-        c = threadsafe_copy(implicit_problem)
+        c = independent_copy(implicit_problem)
         @argcheck typeof(c) == typeof(implicit_problem)
-        check_threadsafe_copy = nothing
+        check_independent_copy = nothing
     catch e
-        check_threadsafe_copy = (e, catch_backtrace())
+        check_independent_copy = (e, catch_backtrace())
         @goto done
     end
 
@@ -182,7 +182,7 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     end
     # collate and return
     @label done
-    SanityChecks(; check_dimensions, check_eltype, check_threadsafe_copy,
+    SanityChecks(; check_dimensions, check_eltype, check_independent_copy,
                  check_initial_guess, check_implicit_solve, check_implicit_residuals,
                  check_get_buffers, check_∂y∂x, check_statistics)
 end

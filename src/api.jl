@@ -10,7 +10,7 @@ public
     get_preferred_eltype,
     get_statistics,
     get_buffers,
-    threadsafe_copy,
+    independent_copy,
     # solution
     get_initial_guesses,
     implicit_solve_with_initial_guesses!,
@@ -68,7 +68,13 @@ evaluate and tune algorithms.
 """
 get_statistics(problem) = (;)
 
-threadsafe_copy(problem) = problem
+"""
+$(SIGNATURES)
+
+Make a copy of problem that functionally equivalent but independent, ie safe for using
+in another thread.
+"""
+independent_copy(problem) = problem
 
 ####
 #### solver

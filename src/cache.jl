@@ -81,12 +81,12 @@ function Base.show(io::IO, problem::CacheImplicitProblem)
           "\n    ∂y∂x hits: $(∂y∂x_hits)")
 end
 
-function threadsafe_copy(problem::CacheImplicitProblem)
+function independent_copy(problem::CacheImplicitProblem)
     (; inner_problem, min_size, max_size, dict, y_hits, ∂y∂x_hits,
      nearest_strategy) = problem
-    CacheImplicitProblem(inner_problem = threadsafe_copy(inner_problem), min_size, max_size,
-                         dict = copy(dict), y_hits = threadsafe_copy(y_hits),
-                         ∂y∂x_hits = threadsafe_copy(∂y∂x_hits), nearest_strategy)
+    CacheImplicitProblem(; inner_problem = independent_copy(inner_problem), min_size, max_size,
+                         dict = copy(dict), y_hits = independent_copy(y_hits),
+                         ∂y∂x_hits = independent_copy(∂y∂x_hits), nearest_strategy)
 end
 
 for f in [:get_dimensions, :get_preferred_eltype, :get_solution_concept,

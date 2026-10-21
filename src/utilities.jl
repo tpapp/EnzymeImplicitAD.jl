@@ -111,7 +111,7 @@ mutable struct OnlineMean{T}
     sum::T
 end
 
-threadsafe_copy(om::OnlineMean) = OnlineMean(om.count, om.sum)
+independent_copy(om::OnlineMean) = OnlineMean(om.count, om.sum)
 
 function Base.show(io::IO, om::OnlineMean)
     (; sum, count) = om
