@@ -12,5 +12,6 @@ include("sanity_checks.jl")
 include("benchmarks.jl")
 include("enzyme_ad.jl")
 include("cache.jl")
+include("keep_failures.jl")
 
 end # module

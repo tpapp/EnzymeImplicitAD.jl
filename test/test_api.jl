@@ -8,18 +8,6 @@ end
     test_Enzyme_AD(P, P)
 end
 
-"A trivial test problem that fails when x < 0."
-struct MayFail end
-
-E.get_dimensions(::MayFail) = (; n_x = 1, n_y = 1, n_r = 1)
-
-function E.implicit_solve_with_initial_guesses!(y, ::MayFail, x; initial_guesses)
-    y[1] = x[1]
-    x[1] ≥ 0                    # flag
-end
-
-E.implicit_residuals!(r, ::MayFail, x, y) = (r[1] = x[1] - y[1]; nothing)
-
 @testset "failure" begin
     f = MayFail()
     c = E.API_sanity_checks(f)

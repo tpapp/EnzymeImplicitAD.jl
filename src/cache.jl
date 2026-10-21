@@ -2,6 +2,8 @@
 ##### wrapper to cache y and ∂y∂x
 #####
 
+public cache_implicit_problem
+
 import Distances
 
 ####
