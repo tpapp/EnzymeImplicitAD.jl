@@ -5,6 +5,7 @@ include("test_api.jl")
 include("test_cache.jl")
 include("test_benchmarks.jl")
 include("test_keep_failures.jl")
+include("test_preallocate_buffers.jl")
 
 ####
 #### QA

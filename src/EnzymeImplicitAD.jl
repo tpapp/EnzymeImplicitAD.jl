@@ -18,5 +18,6 @@ include("benchmarks.jl")
 include("enzyme_ad.jl")
 include("cache.jl")
 include("keep_failures.jl")
+include("preallocate_buffers.jl")
 
 end # module
