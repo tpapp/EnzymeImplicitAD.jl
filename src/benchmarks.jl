@@ -60,7 +60,7 @@ end
 ####
 
 "Structure for saving errors and nice printing."
-Base.@kwdef struct ErrorAt
+@kwdef struct ErrorAt
     x::Any
     error::Any
     backtrace::Any
@@ -83,7 +83,7 @@ $(TYPEDEF)
 
 $(FIELDS)
 """
-Base.@kwdef struct Benchmarks
+@kwdef struct Benchmarks
     "timings for [`implicit_solve!`](@ref)"
     implicit_solve_timings::Timings
     "vector of errors recorded for [`implicit_solve!`](@ref)"

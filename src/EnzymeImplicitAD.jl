@@ -5,7 +5,6 @@ module EnzymeImplicitAD
 
 using ArgCheck: @argcheck
 using DocStringExtensions: FUNCTIONNAME, SIGNATURES, FIELDS, TYPEDEF
-using ConcreteStructs: @concrete
 
 include("utilities.jl")
 include("api.jl")

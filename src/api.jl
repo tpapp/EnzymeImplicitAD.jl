@@ -3,19 +3,20 @@
 #####
 
 public
-    # introspection
+    # accessors
     get_dimensions,
     ZeroResiduals,
     get_solution_concept,
     get_preferred_eltype,
     get_statistics,
+    get_buffers,
+    independent_copy,
     # solution
     get_initial_guesses,
     implicit_solve_with_initial_guesses!,
     implicit_solve!,
     implicit_residuals!,
     # helpers
-    task_local_buffers,
     calculate_∂y∂x,
     calculate_pushforward!,
     accumulate_pullback!
@@ -66,6 +67,14 @@ evaluate and tune algorithms.
     they don't overwrite. See [`merge_disjoint`](@ref).
 """
 get_statistics(problem) = (;)
+
+"""
+$(SIGNATURES)
+
+Make a copy of problem that functionally equivalent but independent, ie safe for using
+in another thread.
+"""
+independent_copy(problem) = problem
 
 ####
 #### solver
@@ -146,19 +155,19 @@ in [`get_dimensions`](@ref).
 - `buffer_x`: has length `n_x`
 - `buffer_y`: has length `n_y`
 
-The fallback method reallocates these for each use, implementations can provide shared
-buffers but they are guaranteed to be task-local.
+The fallback method reallocates these for each use, implementations can provide reusable
+buffers.
 
 The element type of buffers should be consistent with [`get_preferred_eltype`](@ref).
 
 $(BUFFER_DOCS)
 """
-function task_local_buffers(implicit_problem)
+function get_buffers(implicit_problem)
     _make_buffers(get_preferred_eltype(implicit_problem); get_dimensions(implicit_problem)...)
 end
 
-@concrete struct ∂Y∂X
-    ∂g∂y_factor
+struct ∂Y∂X{T}
+    ∂g∂y_factor::T
 end
 
 function Base.show(io::IO, ∂y∂x::∂Y∂X)
@@ -197,7 +206,7 @@ However, this function should only be called when there is a solution (`success 
 true`), otherwise consequences are undefined.
 """
 function calculate_∂y∂x(implicit_problem, x, y)
-    (; buffer_y, buffer_r, buffer_r2) = task_local_buffers(implicit_problem)
+    (; buffer_y, buffer_r, buffer_r2) = get_buffers(implicit_problem)
     ∂g∂y = _calculate_∂g∂y(implicit_problem, x, y, buffer_y, buffer_r, buffer_r2)
     ∂Y∂X(lu!(∂g∂y))
 end
@@ -211,7 +220,7 @@ A fallback is provided using Enzyme, but an `implicit_problem` can define its ow
 """
 function calculate_pushforward!(dy, implicit_problem, x, y, ∂y∂x::∂Y∂X, dx)
     @argcheck get_solution_concept(implicit_problem) ≡ ZeroResiduals()
-    (; buffer_r) = task_local_buffers(implicit_problem)
+    (; buffer_r) = get_buffers(implicit_problem)
     _inplace_∂g∂x_v!(dy, dx, implicit_problem, x, y, buffer_r)
     ldiv!(∂y∂x.∂g∂y_factor, dy)
     dy .*= -1
@@ -230,7 +239,7 @@ function accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x::∂Y∂X, dy
     (; ∂g∂y_factor) = ∂y∂x
     # math:
     #     dy ⋅ ∂y/∂x = - (dy' / ∂g/∂y) ⋅ ∂g/∂x
-    (; buffer_x, buffer_y, buffer_r) = task_local_buffers(implicit_problem)
+    (; buffer_x, buffer_y, buffer_r) = get_buffers(implicit_problem)
     buffer_y .= dy                # buffer_y1 == dy
     rdiv!(buffer_y', ∂g∂y_factor) # a == dy' / ∂g∂y
     _inplace_v_∂g∂x!(buffer_x, buffer_y, implicit_problem, x, y,

@@ -16,13 +16,14 @@ Implementation for `API_sanity_checks`, not part of the API.
 Each field is either `missing` (test not performed), `nothing` (test passed), or an
 error-backtrace pair.
 """
-Base.@kwdef struct SanityChecks
+@kwdef struct SanityChecks
     check_dimensions
     check_eltype
+    check_independent_copy
     check_initial_guess
     check_implicit_solve
     check_implicit_residuals
-    check_task_local_buffers
+    check_get_buffers
     check_∂y∂x
     check_statistics
 end
@@ -45,10 +46,11 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     # initialize sanity checks
     check_dimensions = missing
     check_eltype = missing
+    check_independent_copy = missing
     check_initial_guess = missing
     check_implicit_solve = missing
     check_implicit_residuals = missing
-    check_task_local_buffers = missing
+    check_get_buffers = missing
     check_∂y∂x = missing
     check_statistics = missing
     local T, n_x, n_y, n_r, x, y, success::Bool
@@ -76,6 +78,16 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
         check_eltype = nothing
     catch e
         check_eltype = (e, catch_backtrace())
+        @goto done
+    end
+
+    # independent_copy
+    try
+        c = independent_copy(implicit_problem)
+        @argcheck typeof(c) == typeof(implicit_problem)
+        check_independent_copy = nothing
+    catch e
+        check_independent_copy = (e, catch_backtrace())
         @goto done
     end
 
@@ -122,7 +134,7 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
 
     # task local buffers
     try
-        buffers = task_local_buffers(implicit_problem)
+        buffers = get_buffers(implicit_problem)
         function _check_y_buffer(b, n)
             b[1] += one(T)      # check mutability
             @argcheck b isa AbstractVector
@@ -133,9 +145,9 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
         _check_y_buffer(buffers.buffer_y, n_y)
         _check_y_buffer(buffers.buffer_r, n_r)
         _check_y_buffer(buffers.buffer_r2, n_r)
-        check_task_local_buffers = nothing
+        check_get_buffers = nothing
     catch e
-        check_task_local_buffers = (e, catch_backtrace())
+        check_get_buffers = (e, catch_backtrace())
         @goto done
     end
 
@@ -170,9 +182,9 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     end
     # collate and return
     @label done
-    SanityChecks(; check_dimensions, check_eltype, check_initial_guess, check_implicit_solve,
-                 check_implicit_residuals, check_task_local_buffers, check_∂y∂x,
-                 check_statistics)
+    SanityChecks(; check_dimensions, check_eltype, check_independent_copy,
+                 check_initial_guess, check_implicit_solve, check_implicit_residuals,
+                 check_get_buffers, check_∂y∂x, check_statistics)
 end
 
 function Base.getproperty(checks::SanityChecks, key::Symbol)
