@@ -21,6 +21,7 @@ error-backtrace pair.
     check_eltype
     check_independent_copy
     check_initial_guess
+    check_implicit_solve_with_initial_guesses
     check_implicit_solve
     check_implicit_residuals
     check_get_buffers
@@ -48,12 +49,13 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     check_eltype = missing
     check_independent_copy = missing
     check_initial_guess = missing
+    check_implicit_solve_with_initial_guesses = missing
     check_implicit_solve = missing
     check_implicit_residuals = missing
     check_get_buffers = missing
     check_∂y∂x = missing
     check_statistics = missing
-    local T, n_x, n_y, n_r, x, y, success::Bool
+    local T, n_x, n_y, n_r, x, initial_guesses, y, success::Bool
 
     # dimensions
     try
@@ -94,7 +96,6 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     # initial guess
     try
         x = randn(T, n_x)
-        y = fill(T(NaN), n_y)
         initial_guesses = get_initial_guesses(implicit_problem, x)
         for initial_guess in initial_guesses
             @argcheck initial_guess isa AbstractVector
@@ -106,13 +107,24 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
         @goto done
     end
 
-    # implicit solve
+    # implicit solve with initial guesses
     try
-        success = implicit_solve!(y, implicit_problem, x)
+        y = fill(T(NaN), n_y)
+        success = implicit_solve_with_initial_guesses!(y, implicit_problem, x; initial_guesses)
         @argcheck success isa Bool
         if success
             @argcheck all(isfinite, y)
         end
+        check_implicit_solve_with_initial_guesses = nothing
+    catch e
+        check_implicit_solve_with_initial_guesses = (e, catch_backtrace())
+        @goto done
+    end
+
+    # implicit solve
+    try
+        @argcheck(only(methods(implicit_solve!, Tuple{Any,typeof(implicit_problem),Any})) ==
+            which(implicit_solve!, Tuple{Any,Any,Any}))
         check_implicit_solve = nothing
     catch e
         check_implicit_solve = (e, catch_backtrace())
@@ -183,7 +195,8 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     # collate and return
     @label done
     SanityChecks(; check_dimensions, check_eltype, check_independent_copy,
-                 check_initial_guess, check_implicit_solve, check_implicit_residuals,
+                 check_initial_guess, check_implicit_solve_with_initial_guesses,
+                 check_implicit_solve, check_implicit_residuals,
                  check_get_buffers, check_∂y∂x, check_statistics)
 end
 

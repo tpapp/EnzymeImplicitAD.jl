@@ -171,14 +171,16 @@ function _new_cache_entry!(implicit_problem::CacheImplicitProblem{Y,∂Y∂X},
     entry
 end
 
-function implicit_solve!(y, implicit_problem::CacheImplicitProblem, x)
+function implicit_solve_with_initial_guesses!(y, implicit_problem::CacheImplicitProblem, x;
+                                              initial_guesses)
     (; inner_problem, dict, y_hits) = implicit_problem
     timestamp = time_ns()
     entry = get(dict, x, nothing)
     if entry ≡ nothing
         (; n_y) = get_dimensions(inner_problem)
         internal_y = Vector{get_preferred_eltype(inner_problem)}(undef, n_y)
-        success = implicit_solve!(internal_y, inner_problem, x)
+        success = implicit_solve_with_initial_guesses!(internal_y, inner_problem, x;
+                                                       initial_guesses)
         _new_cache_entry!(implicit_problem, success, x, timestamp, internal_y)
         copy!(y, internal_y)
         update!(y_hits, false)
