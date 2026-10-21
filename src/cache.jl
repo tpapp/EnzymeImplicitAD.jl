@@ -57,7 +57,7 @@ end
 ####
 
 # NOTE: parametrization assumes `x` and `y` values have the same type `Y`
-struct CacheImplicitProblem{Y,∂Y∂X,I,O,N}
+@kwdef struct CacheImplicitProblem{Y,∂Y∂X,I,O,N}
     "the inner (parent) problem"
     inner_problem::I
     "target size after culling the cache"
@@ -81,11 +81,12 @@ function Base.show(io::IO, problem::CacheImplicitProblem)
           "\n    ∂y∂x hits: $(∂y∂x_hits)")
 end
 
-function copy_mutable(problem::CacheImplicitProblem)
+function threadsafe_copy(problem::CacheImplicitProblem)
     (; inner_problem, min_size, max_size, dict, y_hits, ∂y∂x_hits,
      nearest_strategy) = problem
-    CacheImplicitProblem(copy_mutable(inner_problem), min_size, max_size, copy(dict),
-                         copy_mutable(y_hits), copy_mutable(∂y∂x_hits), nearest_strategy)
+    CacheImplicitProblem(inner_problem = threadsafe_copy(inner_problem), min_size, max_size,
+                         dict = copy(dict), y_hits = threadsafe_copy(y_hits),
+                         ∂y∂x_hits = threadsafe_copy(∂y∂x_hits), nearest_strategy)
 end
 
 for f in [:get_dimensions, :get_preferred_eltype, :get_solution_concept,
@@ -128,9 +129,10 @@ function cache_implicit_problem(inner_problem;
                                 nearest_strategy = Distances.Euclidean())
     @argcheck 0 < min_size < max_size
     Y = Vector{get_preferred_eltype(inner_problem)}
-    CacheImplicitProblem(inner_problem, min_size, max_size,
-                         Dict{Y,CacheEntry{Y,get_∂y∂x_type(inner_problem)}}(),
-                         online_mean(UInt64), online_mean(UInt64), nearest_strategy)
+    CacheImplicitProblem(; inner_problem, min_size, max_size,
+                         dict = Dict{Y,CacheEntry{Y,get_∂y∂x_type(inner_problem)}}(),
+                         y_hits = online_mean(UInt64), ∂y∂x_hits = online_mean(UInt64),
+                         nearest_strategy)
 end
 
 """

@@ -10,7 +10,7 @@ public
     get_preferred_eltype,
     get_statistics,
     get_buffers,
-    copy_mutable,
+    threadsafe_copy,
     # solution
     get_initial_guesses,
     implicit_solve_with_initial_guesses!,
@@ -68,7 +68,7 @@ evaluate and tune algorithms.
 """
 get_statistics(problem) = (;)
 
-copy_mutable(problem) = problem
+threadsafe_copy(problem) = problem
 
 ####
 #### solver
