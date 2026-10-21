@@ -122,11 +122,14 @@ function benchmark_and_stresstest(implicit_problem;
     calculate_∂y∂x_errors = Vector{ErrorAt}()
     (; n_x, n_y, n_r) = get_dimensions(implicit_problem)
     T = get_preferred_eltype(implicit_problem)
-    x = Vector{Float64}(undef, n_x)
+    x = zeros(n_x)
     y = Vector{Float64}(undef, n_y)
     r = Vector{Float64}(undef, n_r)
     implicit_solve_timings = Timings()
     calculate_∂y∂x_timings = Timings()
+    # compile methods first
+    implicit_solve!(y, implicit_problem, x)
+    calculate_∂y∂x(implicit_problem, x, y)
     for j in 0:count            # j = 0 extra evaluation for the compiler
         @. x = randn()
         # solver
