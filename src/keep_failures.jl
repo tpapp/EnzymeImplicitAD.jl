@@ -28,7 +28,7 @@ function implicit_solve_with_initial_guesses!(y, implicit_problem::KeepFailures{
     success
 end
 
-function get_initial_guesses(y, problem::KeepFailures, x)
+function get_initial_guesses(problem::KeepFailures, x)
     get_initial_guesses(problem.inner_problem, x)
 end
 
