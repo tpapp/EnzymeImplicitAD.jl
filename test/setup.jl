@@ -61,6 +61,26 @@ analytical_pushforward(P::LinearProblem, dx) = -(P.luB \ (P.A * dx))
 
 analytical_pullback(P::LinearProblem, dy) = (P.luB \ P.A)' * (.-dy)
 
+####
+#### test failures
+####
+
+"A trivial test problem that fails when x < 0."
+struct MayFail end
+
+E.get_dimensions(::MayFail) = (; n_x = 1, n_y = 1, n_r = 1)
+
+function E.implicit_solve_with_initial_guesses!(y, ::MayFail, x; initial_guesses)
+    y[1] = x[1]
+    x[1] ≥ 0                    # flag
+end
+
+E.implicit_residuals!(r, ::MayFail, x, y) = (r[1] = x[1] - y[1]; nothing)
+
+####
+####
+####
+
 """
 Test forward and reverse AD with Enzyme for `implicit_problem`.
 
@@ -101,7 +121,7 @@ function test_Enzyme_AD(implicit_problem, analytical_problem;
 end
 
 ####
-#### test benchmarks
+#### test benchmarks and stress tests
 ####
 
 "Solver and derivatives fail with a given probability."
