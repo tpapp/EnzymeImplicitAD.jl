@@ -2,7 +2,7 @@
     n_x, n_y = 4, 5
     K = 10
     P0 = LinearProblem(; n_x, n_y)
-    P = E.cache_implicit_problem(P0; min_size = K, max_size = 2 * K)
+    P = E.cache_results(P0; min_size = K, max_size = 2 * K)
 
     @test E.API_sanity_checks(P).all_ok
 
@@ -20,7 +20,7 @@
 
     @testset "cache statistics" begin
         P0 = LinearProblem(; n_x, n_y)
-        P = E.cache_implicit_problem(P0; min_size = K, max_size = 2 * K)
+        P = E.cache_results(P0; min_size = K, max_size = 2 * K)
         x = randn(n_x)
         y = fill(NaN, n_y)
         M = 10

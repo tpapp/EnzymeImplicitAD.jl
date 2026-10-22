@@ -2,7 +2,7 @@
 ##### wrapper to cache y and ∂y∂x
 #####
 
-public cache_implicit_problem
+public cache_results
 
 import Distances
 
@@ -59,7 +59,7 @@ end
 ####
 
 # NOTE: parametrization assumes `x` and `y` values have the same type `Y`
-@kwdef struct CacheImplicitProblem{Y,∂Y∂X,I,O,N}
+@kwdef struct CacheResults{Y,∂Y∂X,I,O,N}
     "the inner (parent) problem"
     inner_problem::I
     "target size after culling the cache"
@@ -76,27 +76,27 @@ end
     nearest_strategy::N
 end
 
-function Base.show(io::IO, problem::CacheImplicitProblem)
+function Base.show(io::IO, problem::CacheResults)
     (; min_size, max_size, inner_problem, y_hits, ∂y∂x_hits) = problem
     print(io, "caching [$(min_size),$(max_size)] evaluations of $(inner_problem)",
           "\n    y hits: $(y_hits)",
           "\n    ∂y∂x hits: $(∂y∂x_hits)")
 end
 
-function independent_copy(problem::CacheImplicitProblem)
+function independent_copy(problem::CacheResults)
     (; inner_problem, min_size, max_size, dict, y_hits, ∂y∂x_hits,
      nearest_strategy) = problem
-    CacheImplicitProblem(; inner_problem = independent_copy(inner_problem), min_size, max_size,
+    CacheResults(; inner_problem = independent_copy(inner_problem), min_size, max_size,
                          dict = copy(dict), y_hits = independent_copy(y_hits),
                          ∂y∂x_hits = independent_copy(∂y∂x_hits), nearest_strategy)
 end
 
 for f in [:get_dimensions, :get_preferred_eltype, :get_solution_concept,
           :get_buffers, :get_∂y∂x_type]
-    @eval ($f)(implicit_problem::CacheImplicitProblem) = ($f)(implicit_problem.inner_problem)
+    @eval ($f)(implicit_problem::CacheResults) = ($f)(implicit_problem.inner_problem)
 end
 
-function get_initial_guesses(y, problem::CacheImplicitProblem, x)
+function get_initial_guesses(y, problem::CacheResults, x)
     (; inner_problem, dict, nearest_strategy) = problem
     initial_guesses = get_initial_guesses(inner_problem, x)
     nearest = find_nearest(x, dict, nearest_strategy)
@@ -106,14 +106,14 @@ function get_initial_guesses(y, problem::CacheImplicitProblem, x)
     initial_guesses
 end
 
-function get_statistics(problem::CacheImplicitProblem)
+function get_statistics(problem::CacheResults)
     (; inner_problem, y_hits, ∂y∂x_hits) = problem
     merge_disjoint(get_statistics(inner_problem),
                    (; average_y_hit = get_mean(y_hits),
                     average_∂y∂x_hit = get_mean(∂y∂x_hits)))
 end
 
-function implicit_residuals!(r, implicit_problem::CacheImplicitProblem, x, y)
+function implicit_residuals!(r, implicit_problem::CacheResults, x, y)
     implicit_residuals!(r, implicit_problem.inner_problem, x, y)
 end
 
@@ -126,12 +126,11 @@ Specficially, at least `min_size` and at most `max_size` most recently used valu
 
 Supported statistics: those of the inner problem, `average_y_hit`, `average_∂y∂x_hit`.
 """
-function cache_implicit_problem(inner_problem;
-                                min_size::Int = 10, max_size::Int = 2 * min_size,
-                                nearest_strategy = Distances.Euclidean())
+function cache_results(inner_problem; min_size::Int = 10, max_size::Int = 2 * min_size,
+                       nearest_strategy = Distances.Euclidean())
     @argcheck 0 < min_size < max_size
     Y = Vector{get_preferred_eltype(inner_problem)}
-    CacheImplicitProblem(; inner_problem, min_size, max_size,
+    CacheResults(; inner_problem, min_size, max_size,
                          dict = Dict{Y,CacheEntry{Y,get_∂y∂x_type(inner_problem)}}(),
                          y_hits = online_mean(UInt64), ∂y∂x_hits = online_mean(UInt64),
                          nearest_strategy)
@@ -160,7 +159,7 @@ _ensure_typed_copy(::Type{X}, x::X) where X = copy(x)
 
 _ensure_typed_copy(::Type{_X}, x::X) where {_X,X} = _X(x)
 
-function _new_cache_entry!(implicit_problem::CacheImplicitProblem{Y,∂Y∂X},
+function _new_cache_entry!(implicit_problem::CacheResults{Y,∂Y∂X},
                           success::Bool, x, timestamp::UInt64, internal_y::Y,
                           ∂y∂x::Union{Nothing,∂Y∂X} = nothing) where {Y,∂Y∂X}
     (; dict, min_size, max_size) = implicit_problem
@@ -171,7 +170,7 @@ function _new_cache_entry!(implicit_problem::CacheImplicitProblem{Y,∂Y∂X},
     entry
 end
 
-function implicit_solve_with_initial_guesses!(y, implicit_problem::CacheImplicitProblem, x;
+function implicit_solve_with_initial_guesses!(y, implicit_problem::CacheResults, x;
                                               initial_guesses)
     (; inner_problem, dict, y_hits) = implicit_problem
     timestamp = time_ns()
@@ -193,7 +192,7 @@ function implicit_solve_with_initial_guesses!(y, implicit_problem::CacheImplicit
     end
 end
 
-function calculate_∂y∂x(implicit_problem::CacheImplicitProblem{Y}, x, y) where Y
+function calculate_∂y∂x(implicit_problem::CacheResults{Y}, x, y) where Y
     (; inner_problem, dict, ∂y∂x_hits) = implicit_problem
     timestamp = time_ns()
     entry = get(dict, x, nothing)
