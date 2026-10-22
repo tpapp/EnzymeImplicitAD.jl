@@ -72,9 +72,19 @@ get_statistics(problem) = (;)
 $(SIGNATURES)
 
 Make a copy of problem that functionally equivalent but independent, ie safe for using
-in another thread.
+in another thread. Specifically, this should ensure that all the functions in the API of
+this package are safe to use concurrently on independent copies.
+
+The generic method makes an effort to just return recursively immutable values as is,
+but it may just be too narrow. If it fails, define a method for the type.
 """
-independent_copy(problem) = problem
+function independent_copy(x::T) where T
+    if _is_recursively_immutable(x)
+        x
+    else
+        error("Define a method for `independent_copy` for types $T.")
+    end
+end
 
 ####
 #### solver
@@ -145,25 +155,31 @@ the residuals `r` are “approximately” zero, but this is not checked.
 function implicit_residuals! end
 
 """
-`$(SIGNATURES)` → `(; buffer_y1, buffer_y2, buffer_y3)`
+`$(SIGNATURES)` → `(; x, y, dy, r, dr)`
 
 Return an object which contains the following buffers, which are accessible as
 properties. Each is a vector, with lengths consistent with the corresponding dimension
 in [`get_dimensions`](@ref).
 
-- `buffer_r`, `buffer_r2`: has length `n_r`
-- `buffer_x`: has length `n_x`
-- `buffer_y`: has length `n_y`
-
-The fallback method reallocates these for each use, implementations can provide reusable
-buffers.
+- `buffer_r` is a vector of length `n_r`
+- `buffer_dr` is a tuple of $(AD_CHUNKS) vectors, each of length `n_r`
+- `buffer_x` is a vector of length `n_x`
+- `buffer_y` is a vector of length `n_y`
+- `buffer_dy` is a tuple of $(AD_CHUNKS) vectors, each of length `n_y`
 
 The element type of buffers should be consistent with [`get_preferred_eltype`](@ref).
 
-$(BUFFER_DOCS)
+The hardcoded constant $(AD_CHUNKS) is available as [`AD_CHUNKS`](@ref).
+
+The fallback method reallocates these for each use, implementations can provide reusable
+buffers. However, the buffers should not be used concurrently, see [`independent_copy`](@ref).
 """
 function get_buffers(implicit_problem)
-    _make_buffers(get_preferred_eltype(implicit_problem); get_dimensions(implicit_problem)...)
+    T = get_preferred_eltype(implicit_problem)
+    (; n_r, n_y, n_x) = get_dimensions(implicit_problem)
+    _v(n) = Vector{T}(undef, n)
+    _vc(n) = ntuple(_ -> _v(n), Val(AD_CHUNKS))
+    (; x = _v(n_x), y = _v(n_y), r = _v(n_r), dy = _vc(n_y), dr = _vc(n_r))
 end
 
 struct ∂Y∂X{T}
@@ -206,8 +222,8 @@ However, this function should only be called when there is a solution (`success 
 true`), otherwise consequences are undefined.
 """
 function calculate_∂y∂x(implicit_problem, x, y)
-    (; buffer_y, buffer_r, buffer_r2) = get_buffers(implicit_problem)
-    ∂g∂y = _calculate_∂g∂y(implicit_problem, x, y, buffer_y, buffer_r, buffer_r2)
+    buffers = get_buffers(implicit_problem)
+    ∂g∂y = _calculate_∂g∂y(implicit_problem, x, y, buffers)
     ∂Y∂X(lu!(∂g∂y))
 end
 
@@ -220,8 +236,8 @@ A fallback is provided using Enzyme, but an `implicit_problem` can define its ow
 """
 function calculate_pushforward!(dy, implicit_problem, x, y, ∂y∂x::∂Y∂X, dx)
     @argcheck get_solution_concept(implicit_problem) ≡ ZeroResiduals()
-    (; buffer_r) = get_buffers(implicit_problem)
-    _inplace_∂g∂x_v!(dy, dx, implicit_problem, x, y, buffer_r)
+    buffers = get_buffers(implicit_problem)
+    _inplace_∂g∂x_v!(dy, dx, implicit_problem, x, y, buffers.r)
     ldiv!(∂y∂x.∂g∂y_factor, dy)
     dy .*= -1
     nothing
@@ -239,11 +255,11 @@ function accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x::∂Y∂X, dy
     (; ∂g∂y_factor) = ∂y∂x
     # math:
     #     dy ⋅ ∂y/∂x = - (dy' / ∂g/∂y) ⋅ ∂g/∂x
-    (; buffer_x, buffer_y, buffer_r) = get_buffers(implicit_problem)
-    buffer_y .= dy                # buffer_y1 == dy
-    rdiv!(buffer_y', ∂g∂y_factor) # a == dy' / ∂g∂y
-    _inplace_v_∂g∂x!(buffer_x, buffer_y, implicit_problem, x, y,
-                     buffer_r)  # b = (dy' / ∂g/∂y) ⋅ ∂g/∂x
-    dx .-= buffer_x
+    buffers = get_buffers(implicit_problem)
+    buffers.y .= dy                # buffer_y1 == dy
+    rdiv!(buffers.y', ∂g∂y_factor) # a == dy' / ∂g∂y
+    _inplace_v_∂g∂x!(buffers.x, buffers.y, implicit_problem, x, y,
+                     buffers.r)  # b = (dy' / ∂g/∂y) ⋅ ∂g/∂x
+    dx .-= buffers.x
     nothing
 end

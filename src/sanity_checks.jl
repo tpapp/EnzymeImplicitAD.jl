@@ -147,16 +147,19 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     # task local buffers
     try
         buffers = get_buffers(implicit_problem)
-        function _check_y_buffer(b, n)
+        function _check_buffer(b, n)
             b[1] += one(T)      # check mutability
             @argcheck b isa AbstractVector
             @argcheck eltype(b) ≡ T
             @argcheck length(b) == n
         end
-        _check_y_buffer(buffers.buffer_x, n_x)
-        _check_y_buffer(buffers.buffer_y, n_y)
-        _check_y_buffer(buffers.buffer_r, n_r)
-        _check_y_buffer(buffers.buffer_r2, n_r)
+        _check_buffer(buffers.x, n_x)
+        _check_buffer(buffers.y, n_y)
+        _check_buffer(buffers.r, n_r)
+        for i in 1:AD_CHUNKS
+            _check_buffer(buffers.dy[i], n_y)
+            _check_buffer(buffers.dr[i], n_r)
+        end
         check_get_buffers = nothing
     catch e
         check_get_buffers = (e, catch_backtrace())

@@ -57,6 +57,8 @@ function E.implicit_residuals!(r::AbstractVector{T}, P::LinearProblem, x, y) whe
     nothing
 end
 
+E.independent_copy(P::LinearProblem) = P
+
 analytical_pushforward(P::LinearProblem, dx) = -(P.luB \ (P.A * dx))
 
 analytical_pullback(P::LinearProblem, dy) = (P.luB \ P.A)' * (.-dy)

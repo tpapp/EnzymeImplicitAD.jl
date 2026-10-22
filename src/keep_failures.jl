@@ -28,7 +28,13 @@ function implicit_solve_with_initial_guesses!(y, implicit_problem::KeepFailures{
     success
 end
 
-function get_initial_guesses(y, problem::KeepFailures, x)
+function independent_copy(implicit_problem::KeepFailures)
+    (; inner_problem, failure_rate, failures) = implicit_problem
+    KeepFailures(independent_copy(inner_problem), independent_copy(failure_rate),
+                 copy(failures))
+end
+
+function get_initial_guesses(problem::KeepFailures, x)
     get_initial_guesses(problem.inner_problem, x)
 end
 

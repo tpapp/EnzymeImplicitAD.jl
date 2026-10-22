@@ -1,5 +1,5 @@
 @testset "keep_failures" begin
-    @test E.API_sanity_checks(LinearProblem(; n_x = 4, n_y = 3)).all_ok
+    @test E.API_sanity_checks(E.keep_failures(LinearProblem(; n_x = 4, n_y = 3))).all_ok
 
     P = E.keep_failures(MayFail())
     N = 100

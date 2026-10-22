@@ -2,12 +2,6 @@
 ##### AD implementation for Enzyme
 #####
 
-import Enzyme.EnzymeRules: augmented_primal, forward, reverse
-using Enzyme.EnzymeRules: Const, Duplicated, FwdConfig, RevConfigWidth, overwritten,
-    AugmentedReturn, needs_primal
-using Enzyme: Forward, Reverse, autodiff, make_zero!
-using LinearAlgebra: ldiv!, lu!, rdiv!
-
 function forward(_config::FwdConfig{NP}, ::Const{typeof(implicit_solve!)},
                  ::Type{Const{Bool}}, Dy::Union{Const,Duplicated}, ℐ::Const,
                  Dx::Union{Const,Duplicated}) where NP
