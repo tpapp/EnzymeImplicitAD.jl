@@ -59,7 +59,7 @@ end
 ####
 
 # NOTE: parametrization assumes `x` and `y` values have the same type `Y`
-@kwdef struct CacheResults{Y,∂Y∂X,I,O,N}
+@kwdef struct CacheResults{Y,∂Y∂X,I,O,N} <: WrappedImplicitProblem
     "the inner (parent) problem"
     inner_problem::I
     "target size after culling the cache"
@@ -91,9 +91,9 @@ function independent_copy(problem::CacheResults)
                          ∂y∂x_hits = independent_copy(∂y∂x_hits), nearest_strategy)
 end
 
-for f in [:get_dimensions, :get_preferred_eltype, :get_solution_concept,
-          :get_buffers, :get_∂y∂x_type]
-    @eval ($f)(implicit_problem::CacheResults) = ($f)(implicit_problem.inner_problem)
+function wrapper_statistics(problem::CacheResults)
+    (; y_hits, ∂y∂x_hits) = problem
+    (; average_y_hit = get_mean(y_hits), average_∂y∂x_hit = get_mean(∂y∂x_hits))
 end
 
 function get_initial_guesses(y, problem::CacheResults, x)
@@ -104,17 +104,6 @@ function get_initial_guesses(y, problem::CacheResults, x)
         push!(initial_guesses, copy(nearest[2].y)) # don't share storage
     end
     initial_guesses
-end
-
-function get_statistics(problem::CacheResults)
-    (; inner_problem, y_hits, ∂y∂x_hits) = problem
-    merge_disjoint(get_statistics(inner_problem),
-                   (; average_y_hit = get_mean(y_hits),
-                    average_∂y∂x_hit = get_mean(∂y∂x_hits)))
-end
-
-function implicit_residuals!(r, implicit_problem::CacheResults, x, y)
-    implicit_residuals!(r, implicit_problem.inner_problem, x, y)
 end
 
 """

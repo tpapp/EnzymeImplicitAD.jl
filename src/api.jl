@@ -11,6 +11,7 @@ public
     get_statistics,
     get_buffers,
     independent_copy,
+    innermost_parent,
     # solution
     get_initial_guesses,
     implicit_solve_with_initial_guesses!,
@@ -22,15 +23,52 @@ public
     accumulate_pullback!
 
 ####
+#### wrapper
+####
+
+"""
+Abstract type for wrappers. The parent is in the field `inner_problem`.
+
+Forwards
+
+1. [`get_dimensions`](@ref)
+
+2. [`get_statistics`](@ref) (note: subtypes should implement
+[`wrapper_statistics`](@ref) to add statistics)
+
+3. [`get_solution_concept`](@ref)
+
+4. [`innermost_parent`](@ref)
+
+5. [`implicit_residuals`](@ref)
+
+6. [`get_buffers`](@ref)
+
+Only for organizing code inside this package, not part of the API.
+"""
+abstract type WrappedImplicitProblem end
+
+"""
+$(SIGNATURES)
+
+Statistics added by a wrapper as a `NamedTuple`.
+
+Only for organizing code inside this package, not part of the API.
+"""
+wrapper_statistics(::WrappedImplicitProblem) = (;)
+
+####
 #### introspection
 ####
 
 """
-`$(FUNCTIONNAME)(implicit_problem)` → `(; n_x, n_y, n_r)`
+`$(SIGNATURES)` → `(; n_x, n_y, n_r)`
 
 Return the dimensions of the problem.
 """
-function get_dimensions end
+function get_dimensions(implicit_problem::WrappedImplicitProblem)
+    get_dimensions(implicit_problem.inner_problem)
+end
 
 """
 Solution concept: for a given `x`, `y` is the solution which makes residuals `r` zero in
@@ -39,11 +77,15 @@ Solution concept: for a given `x`, `y` is the solution which makes residuals `r`
 struct ZeroResiduals end
 
 """
-`$(FUNCTIONNAME)(implicit_problem)` → `solution_concept`
+`$(SIGNATURES)` → `solution_concept`
 
 Return the solution concept. The default is [`ZeroResiduals`](@ref).
 """
-get_solution_concept(problem) = ZeroResiduals()
+get_solution_concept(implicit_problem) = ZeroResiduals()
+
+function get_solution_concept(implicit_problem::WrappedImplicitProblem)
+    get_solution_concept(implicit_problem.inner_problem)
+end
 
 """
 `$(SIGNATURES)` → `T`
@@ -56,6 +98,10 @@ The default is `Float64`.
 """
 get_preferred_eltype(implicit_problem) = Float64
 
+function get_preferred_eltype(implicit_problem::WrappedImplicitProblem)
+    get_preferred_eltype(implicit_problem.inner_problem)
+end
+
 """
 `$(SIGNATURES)` → `statistics::NamedTuple`
 
@@ -66,7 +112,12 @@ evaluate and tune algorithms.
     Wrapper types should merge statistics of the parent in most cases, checking that
     they don't overwrite. See [`merge_disjoint`](@ref).
 """
-get_statistics(problem) = (;)
+get_statistics(implicit_problem) = (;)
+
+function get_statistics(implicit_problem::WrappedImplicitProblem)
+    merge_disjoint(wrapper_statistics(implicit_problem),
+                   get_statistics(implicit_problem.inner_problem))
+end
 
 """
 $(SIGNATURES)
@@ -85,6 +136,13 @@ function independent_copy(x::T) where T
         error("Define a method for `independent_copy` for types $T.")
     end
 end
+
+"""
+$(SIGNATURES)
+"""
+innermost_parent(x) = x
+
+innermost_parent(x::WrappedImplicitProblem) = innermost_parent(x.inner_problem)
 
 ####
 #### solver
@@ -152,7 +210,9 @@ $(FUNCTIONNAME)(r, implicit_problem, x, y)
 ```
 the residuals `r` are “approximately” zero, but this is not checked.
 """
-function implicit_residuals! end
+function implicit_residuals!(r, implicit_problem::WrappedImplicitProblem, x, y)
+    implicit_residuals!(r, implicit_problem.inner_problem, x, y)
+end
 
 """
 `$(SIGNATURES)` → `(; x, y, dy, r, dr)`
@@ -180,6 +240,10 @@ function get_buffers(implicit_problem)
     _v(n) = Vector{T}(undef, n)
     _vc(n) = ntuple(_ -> _v(n), Val(AD_CHUNKS))
     (; x = _v(n_x), y = _v(n_y), r = _v(n_r), dy = _vc(n_y), dr = _vc(n_r))
+end
+
+function get_buffers(implicit_problem::WrappedImplicitProblem)
+    get_buffers(implicit_problem.inner_problem)
 end
 
 struct ∂Y∂X{T}

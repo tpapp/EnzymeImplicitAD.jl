@@ -16,7 +16,7 @@ Implementation for `API_sanity_checks`, not part of the API.
 Each field is either `missing` (test not performed), `nothing` (test passed), or an
 error-backtrace pair.
 """
-@kwdef struct SanityChecks
+@kwdef struct SanityChecks      # deliberately untyped fields
     check_dimensions
     check_eltype
     check_independent_copy
