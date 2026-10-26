@@ -32,3 +32,10 @@ end
     @test @inferred(autodiff(ReverseWithPrimal, E.implicit_solve!, Duplicated(y, dy),
                              Const(f), Duplicated(x, dx))) == ((nothing, nothing, nothing), true)
 end
+
+@testset "chained wrappers innermost parent" begin
+    P0 = LinearProblem(; n_x = 3, n_y = 4)
+    @test E.innermost_parent(P0) ≡ P0
+    P1 = (E.keep_failures ∘ E.cache_results ∘ E.preallocate_buffers)(P0)
+    @test E.innermost_parent(P1) ≡ P0
+end

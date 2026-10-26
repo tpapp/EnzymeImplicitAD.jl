@@ -4,19 +4,10 @@
 
 public keep_failures
 
-struct KeepFailures{V,I}
+struct KeepFailures{V,I} <: WrappedImplicitProblem
     inner_problem::I
     failure_rate::OnlineMean{Int}
     failures::Vector{V}
-end
-
-for f in [:get_dimensions, :get_preferred_eltype, :get_solution_concept,
-          :get_buffers, :get_∂y∂x_type]
-    @eval ($f)(implicit_problem::KeepFailures) = ($f)(implicit_problem.inner_problem)
-end
-
-function implicit_residuals!(r, implicit_problem::KeepFailures, x, y)
-    implicit_residuals!(r, implicit_problem.inner_problem, x, y)
 end
 
 function implicit_solve_with_initial_guesses!(y, implicit_problem::KeepFailures{V}, x;
@@ -38,10 +29,9 @@ function get_initial_guesses(problem::KeepFailures, x)
     get_initial_guesses(problem.inner_problem, x)
 end
 
-function get_statistics(implicit_problem::KeepFailures)
-    (; inner_problem, failure_rate, failures) = implicit_problem
-    merge_disjoint(get_statistics(inner_problem),
-                   (; failure_rate = get_mean(failure_rate), failures))
+function wrapper_statistics(implicit_problem::KeepFailures)
+    (; failure_rate, failures) = implicit_problem
+    (; failure_rate = get_mean(failure_rate), failures)
 end
 
 function Base.show(io::IO, implicit_problem::KeepFailures)
