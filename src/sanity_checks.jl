@@ -20,7 +20,7 @@ error-backtrace pair.
     check_dimensions
     check_eltype
     check_independent_copy
-    check_innermost_problem
+    check_innermost_parent
     check_initial_guess
     check_implicit_solve_with_initial_guesses
     check_implicit_solve
@@ -49,7 +49,7 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     check_dimensions = missing
     check_eltype = missing
     check_independent_copy = missing
-    check_innermost_problem = missing
+    check_innermost_parent = missing
     check_initial_guess = missing
     check_implicit_solve_with_initial_guesses = missing
     check_implicit_solve = missing
@@ -97,10 +97,10 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
 
     # innermost problem
     try
-        I = innermost_problem(implicit_problem)
-        check_innermost_problem = nothing
+        I = innermost_parent(implicit_problem)
+        check_innermost_parent = nothing
     catch e
-        check_innermost_problem = (e, catch_backtrace())
+        check_innermost_parent = (e, catch_backtrace())
         @goto done
     end
 
@@ -209,7 +209,7 @@ function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
     # collate and return
     @label done
     SanityChecks(; check_dimensions, check_eltype, check_independent_copy,
-                 check_innermost_problem, check_initial_guess,
+                 check_innermost_parent, check_initial_guess,
                  check_implicit_solve_with_initial_guesses, check_implicit_solve,
                  check_implicit_residuals, check_get_buffers, check_∂y∂x, check_statistics)
 end

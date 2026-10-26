@@ -16,9 +16,7 @@ function implicit_solve_with_initial_guesses!(y, implicit_problem::PreallocateBu
 end
 
 function Base.show(io::IO, implicit_problem::PreallocateBuffers)
-    (; inner_problem, failure_rate, failures) = implicit_problem
-    println(io, "keeping failures for\n  ", inner_problem,
-            "\n  failure rate: ", failure_rate)
+    println(io, "preallocating buffers for\n  ", implicit_problem.inner_problem)
 end
 
 """
@@ -33,3 +31,5 @@ end
 function independent_copy(implicit_problem::PreallocateBuffers)
     preallocate_buffers(independent_copy(implicit_problem.inner_problem))
 end
+
+get_buffers(implicit_problem::PreallocateBuffers) = implicit_problem.buffers
