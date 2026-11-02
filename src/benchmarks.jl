@@ -114,7 +114,8 @@ FIXME
 """
 function benchmark_and_stresstest(implicit_problem;
                                   count = 1000,
-                                  max_errors = 20,
+                                  max_solver_errors = 20,
+                                  max_partial_errors = 20,
                                   worst_solver = max(20, div(count, 10, RoundUp)),
                                   worst_∂y∂x = max(20, div(count, 10, RoundUp)),
                                   rng = Random.default_rng())
@@ -137,18 +138,26 @@ function benchmark_and_stresstest(implicit_problem;
             𝒯 = @timed implicit_solve!(y, implicit_problem, x)
             j > 0 && update!(implicit_solve_timings, 𝒯, x) # don't record j = 0
             # ∂y∂x
-            try
-                𝒯 = @timed calculate_∂y∂x(implicit_problem, x, y)
-                j > 0 && update!(calculate_∂y∂x_timings, 𝒯, x) # don't record j = 0
-            catch e
-                if length(calculate_∂y∂x_errors) < max_errors
-                    push!(calculate_∂y∂x_errors, ErrorAt(; x, error = e, backtrace = catch_backtrace()))
+            if 𝒯.value
+                try
+                    𝒯 = @timed calculate_∂y∂x(implicit_problem, x, y)
+                    j > 0 && update!(calculate_∂y∂x_timings, 𝒯, x) # don't record j = 0
+                catch e
+                    if length(calculate_∂y∂x_errors) < max_partial_errors
+                        push!(calculate_∂y∂x_errors, ErrorAt(; x, error = e, backtrace = catch_backtrace()))
+                    else
+                        break
+                    end
+                end
+            else
+                if length(implicit_solve_errors) < max_solver_errors
+                    push!(implicit_solve_errors, ErrorAt(; x, error = nothing, backtrace = nothing))
                 else
                     break
                 end
             end
         catch e
-            if length(implicit_solve_errors) < max_errors
+            if length(implicit_solve_errors) < max_solver_errors
                 push!(implicit_solve_errors, ErrorAt(; x, error = e, backtrace = catch_backtrace()))
             else
                 break
