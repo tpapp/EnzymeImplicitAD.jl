@@ -181,7 +181,8 @@ function implicit_solve_with_initial_guesses!(y, implicit_problem::CacheResults,
     end
 end
 
-function calculate_∂y∂x(implicit_problem::CacheResults{Y}, x, y) where Y
+function calculate_∂y∂x(implicit_problem::CacheResults{Y},
+                        x::AbstractVector, y::AbstractVector) where Y
     (; inner_problem, dict, ∂y∂x_hits) = implicit_problem
     timestamp = time_ns()
     entry = get(dict, x, nothing)
