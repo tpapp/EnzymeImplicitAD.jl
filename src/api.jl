@@ -288,7 +288,13 @@ true`), otherwise consequences are undefined.
 function calculate_∂y∂x(implicit_problem, x, y)
     buffers = get_buffers(implicit_problem)
     ∂g∂y = _calculate_∂g∂y(implicit_problem, x, y, buffers)
-    ∂Y∂X(lu!(∂g∂y))
+    _lu = try
+        lu!(∂g∂y)
+    catch e
+        @info "error performing LU factorization" x y ∂g∂y
+        rethrow(e)
+    end
+    ∂Y∂X(_lu)
 end
 
 """

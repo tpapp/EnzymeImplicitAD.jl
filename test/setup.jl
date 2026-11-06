@@ -147,7 +147,7 @@ function E.implicit_residuals!(r, s::SometimesFails, x, y)
     E.implicit_residuals!(r, s.inner_problem, x, y)
 end
 
-function E.calculate_∂y∂x(s::SometimesFails, x, y)
+function E.calculate_∂y∂x(s::SometimesFails, x::AbstractVector, y::AbstractVector)
     rand() < s.failure_probability && throw(DomainError(copy(x), "I don't like this particular x"))
     E.calculate_∂y∂x(s.inner_problem, x, y)
 end
