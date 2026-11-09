@@ -197,7 +197,7 @@ end
 
 function _is_recursively_immutable(x::T) where T
     if isstructtype(T)
-        ismutabletype(T) && _is_recursively_immutable_struct(x)
+        !ismutabletype(T) && _is_recursively_immutable_struct(x)
     else
         false
     end
