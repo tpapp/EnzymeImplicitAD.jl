@@ -7,7 +7,11 @@ makedocs(
     format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"),
     authors = "Tamás K. Papp",
     sitename = "EnzymeImplicitAD.jl",
-    pages = Any["index.md"],
+    pages = Any["index.md",
+                "api.md",
+                "wrappers.md",
+                "benchmarks_sanity_checks.md",
+                "ad_hooks.md"],
     clean = true,
     checkdocs = :public,
 )
