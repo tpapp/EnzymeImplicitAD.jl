@@ -62,7 +62,7 @@ wrapper_statistics(::WrappedImplicitProblem) = (;)
 ####
 
 """
-`$(SIGNATURES)` → `(; n_x, n_y, n_r)`
+$(_SIG("(; n_x, n_y, n_r)"))
 
 Return the dimensions of the problem.
 """
@@ -77,7 +77,7 @@ Solution concept: for a given `x`, `y` is the solution which makes residuals `r`
 struct ZeroResiduals end
 
 """
-`$(SIGNATURES)` → `solution_concept`
+$(_SIG("solution_concept"))
 
 Return the solution concept. The default is [`ZeroResiduals`](@ref), which is currently
 the only supported solution concept.
@@ -89,7 +89,7 @@ function get_solution_concept(implicit_problem::WrappedImplicitProblem)
 end
 
 """
-`$(SIGNATURES)` → `T`
+$(_SIG("T"))
 
 Return the preferred element type for a problem. This is used for buffers and interim
 quantities, and should allow for enough precision even with input/output arrays that
@@ -104,14 +104,10 @@ function get_preferred_eltype(implicit_problem::WrappedImplicitProblem)
 end
 
 """
-`$(SIGNATURES)` → `statistics::NamedTuple`
+$(_SIG("statistics::NamedTuple"))
 
 Return various statistics that are accumulated during calls, that may help the user
 evaluate and tune algorithms.
-
-!!! implementation note
-    Wrapper types should merge statistics of the parent in most cases, checking that
-    they don't overwrite. See [`merge_disjoint`](@ref).
 """
 get_statistics(implicit_problem) = (;)
 
@@ -150,7 +146,7 @@ innermost_parent(x::WrappedImplicitProblem) = innermost_parent(x.inner_problem)
 ####
 
 """
-`$(SIGNATURES)` → `AbstractVector{<:AbstractVector{eltype(x)}}`
+$(_SIG("AbstractVector{<:AbstractVector{eltype(x)}}"))
 
 Provide initial guess(es) for the problem given `x`, as a vector of vectors. May be
 empty. The most useful initial guesses should come first.
@@ -160,7 +156,7 @@ Caller can assume that the dimensions are correct.
 get_initial_guesses(problem, x) = Vector{typeof(x)}()
 
 """
-`$(FUNCTIONNAME)(y, implicit_problem, x; initial_guesses)` → `success::Bool`
+$(_SIG("success::Bool"))
 
 Solve for `y` with `implicit_problem` at `x`. `initial_guesses` is a vector of
 initial guesses for `y` (may be empty).
@@ -173,9 +169,9 @@ Methods are implemented *outside* this package.
 function implicit_solve_with_initial_guesses! end
 
 """
-`$(SIGNATURES)` → `success::Bool`
+$(_SIG("success::Bool"))
 
-Solve the implicit problem ``g(x, y(x)) = 0`` at `x`, overwriting `y` with ``y(x)`` result.
+Solve the implicit problem ``F(x, y(x)) = 0`` at `x`, overwriting `y` with ``y(x)`` result.
 
 When `success`, the result is put in `y`. When `!success`, the contents of `y` (and,
 consequently, the pullback/pushforward in AD) are undefined. Implementations are
@@ -183,10 +179,9 @@ encouraged, but not required, to fill the latter with `NaN`s.
 
 See [`implicit_residuals!`](@ref), which implements ``g`` above.
 
-!!! NOTE
+!!! note
     Don't specialize this method, rather [`get_initial_guesses`](@ref),
     [`implicit_solve_with_initial_guesses!`](@ref).
-```
 """
 function implicit_solve!(y, implicit_problem, x)
     initial_guesses = get_initial_guesses(implicit_problem, x)
@@ -198,11 +193,9 @@ end
 ####
 
 """
-`$(FUNCTIONNAME)(r, implicit_problem, x, y)` → `nothing`
+$(_SIG("nothing"))
 
-Calculate the implicit residuals ``r = g(x, y)``, overwriting `r`.
-
-Return `nothing`.
+Calculate the implicit residuals ``r = F(x, y)``, overwriting `r`.
 
 It is assumed that after
 ```julia
@@ -216,7 +209,7 @@ function implicit_residuals!(r, implicit_problem::WrappedImplicitProblem, x, y)
 end
 
 """
-`$(SIGNATURES)` → `(; x, y, dy, r, dr)`
+$(_SIG("(; x, y, dy, r, dr)"))
 
 Return an object which contains the following buffers, which are accessible as
 properties. Each is a vector, with lengths consistent with the corresponding dimension
@@ -257,7 +250,7 @@ function Base.show(io::IO, ∂y∂x::∂Y∂X)
 end
 
 """
-`$(SIGNATURES) → T`
+$(_SIG("T"))
 
 The return type of [`calculate_∂y∂x`](@ref).
 
@@ -273,7 +266,7 @@ function get_∂y∂x_type(implicit_problem)
 end
 
 """
-`$(SIGNATURES)` → `∂y∂x`
+$(_SIG("∂y∂x"))
 
 Return an object `∂y∂x` that acts like a Jacobian matrix when pre- or post-multiplied by
 a conformable vector, via the methods [`calculate_pushforward!`](@ref) and
@@ -299,7 +292,7 @@ function calculate_∂y∂x(implicit_problem, x, y)
 end
 
 """
-`$(SIGNATURES) → nothing`
+$(_SIG("nothing"))
 
 Calculate the pushforward `dy = ∂y∂x ⋅ dx` into `dy`.
 
@@ -315,7 +308,7 @@ function calculate_pushforward!(dy, implicit_problem, x, y, ∂y∂x::∂Y∂X, 
 end
 
 """
-`$(SIGNATURES)` → `nothing`
+$(_SIG("nothing"))
 
 Accumulate the pullback `dy ⋅ ∂y∂x` into `dx`.
 

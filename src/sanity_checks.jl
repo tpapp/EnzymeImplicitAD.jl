@@ -34,7 +34,7 @@ $(FIELDS)
 end
 
 """
-`$(SIGNATURES)` → `checks::SanityChecks`
+$(_SIG("checks::SanityChecks"))
 
 Check that the interface implemented to `implicit_problem` conforms to the expected API.
 See [`SanityChecks`](@ref), which prints as a nice summary.

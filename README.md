@@ -17,7 +17,7 @@ which define ``y`` as an [implicit function](https://en.wikipedia.org/wiki/Impli
 
 We use the term “implicit problem” for an *implicit function associated with metadata*, such as problem dimensions, solution statistics.
 
-The api of the package
+The API of this package
 
 1. helps *define problems* of this kind with a simple interface, implemented by the user,
 
@@ -48,7 +48,7 @@ Technically yes, since the package will be kept at `v0.x`, so everything is assu
 
 ### Can I use this in production code?
 
-The code is intended to be usable, with unit tests, and if you commit the manifest it will be reproducible. That said, the project may be abandonned at any point without prior notice, and you should be ready to migrate to a new package when that happens.
+The code is intended to be usable, with unit tests, and if you commit the manifest it will be reproducible. Note that this is still work in progress though, and be ready for breaking changes.
 
 ### Will this package be registered/released eventually?
 

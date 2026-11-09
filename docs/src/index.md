@@ -4,57 +4,60 @@
 EnzymeImplicitAD
 ```
 
-The purpose of this Julia package is to organize solution and automatic differentiation of *implicit problems*, described mathematically as
+## Solving implicit problems
 
-```math
-F(x, y(x)) = 0
-```
-
-which define ``y`` as an [implicit function](https://en.wikipedia.org/wiki/Implicit_function) of ``x``.
-
-We use the term “implicit problem” for an *implicit function associated with metadata*, such as problem dimensions, solution statistics.
-
-The api of the package
-
-1. helps *define problems* of this kind with a simple interface, implemented by the user,
-
-2. implements functions for *checking and benchmarking* user implementations,
-
-3. provides various *wrappers* that handle caching of values, recording or failed solutions, preallocation of buffers.
-
-The package *does not export any symbols*, merely makes them `public`. It is recommended that the user *imports* the package with a short alias, such as in
-
-```@example
-import EnzymeImplicitAD as EI
-```
-
-## Problem interface
-
-### Core interface
-
-For each implicit problemA *problem* has to implement the methods for the following functions:
+The purpose of this package is to isolate an implicit problem in part of the code, and make it differentiable. The key entry point for that is
 
 ```@docs
+EnzymeImplicitAD.implicit_solve!
+```
+
+which can be used in a problem-agnostic manner.
+
+Problems can be queried for the preferred element type of buffers and their dimensions:
+
+```@docs
+EnzymeImplicitAD.get_preferred_eltype
 EnzymeImplicitAD.get_dimensions
+```
+
+See also [Solution concepts](@ref).
+
+## Implementing implicit problems
+
+### Minimal conforming implementation
+
+A *problem* has to implement at least the following methods for the following functions:
+
+1. [`EnzymeImplicitAD.get_dimensions`](@ref),
+2. [`EnzymeImplicitAD.implicit_residuals!`](@ref),
+3. [`EnzymeImplicitAD.implicit_solve_with_initial_guesses!`](@ref).
+
+An example implementation of a trivial problem (which of course does not require an implicit method):
+```@example
+import EnzymeImplicitAD as EI
+
+"Solving x + y = 0"
+struct TrivialProblem end
+
+EI.get_dimensions(::TrivialProblem) = (; n_x = 1, n_y = 1, n_r = 1)
+EI.implicit_residuals!(r, ::TrivialProblem, x, y) = (r[1] = only(x) + only(y); nothing)
+EI.implicit_solve_with_initial_guesses!(y, ::TrivialProblem, x; initial_guesses) = (y[1] = -only(x); true)
+
+EI.sanity_checks(TrivialProblem())
+```
+
+```@docs
 EnzymeImplicitAD.implicit_residuals!
 EnzymeImplicitAD.implicit_solve_with_initial_guesses!
 ```
 
 ### Solver
 
-```@docs
-EnzymeImplicitAD.implicit_solve!
-```
-
-```@docs
-EnzymeImplicitAD.get_solution_concept
-EnzymeImplicitAD.ZeroResiduals
-```
 
 ### Optional interface
 
 ```@docs
-EnzymeImplicitAD.get_preferred_eltype
 EnzymeImplicitAD.get_statistics
 EnzymeImplicitAD.get_buffers
 EnzymeImplicitAD.get_initial_guesses
@@ -97,8 +100,11 @@ EnzymeImplicitAD.sanity_checks
 EnzymeImplicitAD.SanityChecks
 ```
 
-## Utilities
+## Solution concepts
+
+Currently, the interfact supports only the implicit function formulation. The following API is for future extensions, allowing least squares or fixed point formulations.
 
 ```@docs
-EnzymeImplicitAD.merge_disjoint
+EnzymeImplicitAD.get_solution_concept
+EnzymeImplicitAD.ZeroResiduals
 ```
