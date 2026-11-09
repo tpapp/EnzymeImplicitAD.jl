@@ -93,7 +93,7 @@ EnzymeImplicitAD.Benchmarks
 ```
 
 ```@docs
-EnzymeImplicitAD.API_sanity_checks
+EnzymeImplicitAD.sanity_checks
 EnzymeImplicitAD.SanityChecks
 ```
 

@@ -2,7 +2,7 @@
 ##### utilities for testing API conformance
 #####
 
-public API_sanity_checks, SanityChecks
+public sanity_checks, SanityChecks
 
 using LinearAlgebra: norm
 
@@ -11,7 +11,7 @@ using LinearAlgebra: norm
 ####
 
 """
-Results from [`API_sanity_checks`](@ref).
+Results from [`sanity_checks`](@ref).
 
 Each field is either `missing` (test not performed), `nothing` (test passed), or an
 error-backtrace pair. In addition, the property `all_ok::Bool` is supported, which is
@@ -47,7 +47,7 @@ used for debugging but are not part of the API.
 
 - `residual_l2norm`: the Euclidean norm used to check the residual
 """
-function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
+function sanity_checks(implicit_problem; residual_l2norm = √eps())
     # initialize sanity checks
     check_dimensions = missing
     check_eltype = missing

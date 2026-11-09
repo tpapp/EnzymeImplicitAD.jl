@@ -4,7 +4,7 @@
     P0 = LinearProblem(; n_x, n_y)
     P = E.cache_results(P0; min_size = K, max_size = 2 * K)
 
-    @test E.API_sanity_checks(P).all_ok
+    @test E.sanity_checks(P).all_ok
 
     for _ in 1:(4*K)            # > max_size to test culling
         x = randn(n_x)
