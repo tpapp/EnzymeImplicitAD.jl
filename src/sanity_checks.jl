@@ -2,7 +2,7 @@
 ##### utilities for testing API conformance
 #####
 
-public API_sanity_checks
+public API_sanity_checks, SanityChecks
 
 using LinearAlgebra: norm
 
@@ -11,10 +11,13 @@ using LinearAlgebra: norm
 ####
 
 """
-Implementation for `API_sanity_checks`, not part of the API.
+Results from [`API_sanity_checks`](@ref).
 
 Each field is either `missing` (test not performed), `nothing` (test passed), or an
-error-backtrace pair.
+error-backtrace pair. In addition, the property `all_ok::Bool` is supported, which is
+`true` iff all checks passed.
+
+$(FIELDS)
 """
 @kwdef struct SanityChecks      # deliberately untyped fields
     check_dimensions

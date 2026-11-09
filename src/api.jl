@@ -79,7 +79,8 @@ struct ZeroResiduals end
 """
 `$(SIGNATURES)` → `solution_concept`
 
-Return the solution concept. The default is [`ZeroResiduals`](@ref).
+Return the solution concept. The default is [`ZeroResiduals`](@ref), which is currently
+the only supported solution concept.
 """
 get_solution_concept(implicit_problem) = ZeroResiduals()
 
@@ -184,7 +185,7 @@ See [`implicit_residuals!`](@ref), which implements ``g`` above.
 
 !!! NOTE
     Don't specialize this method, rather [`get_initial_guesses`](@ref),
-    [`impicit_solve_with_initial_guesses!`](@ref).
+    [`implicit_solve_with_initial_guesses!`](@ref).
 ```
 """
 function implicit_solve!(y, implicit_problem, x)

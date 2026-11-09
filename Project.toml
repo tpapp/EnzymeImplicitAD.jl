@@ -4,7 +4,7 @@ version = "0.1.2"
 authors = ["Tamás K. Papp <tkpapp@gmail.com>"]
 
 [workspace]
-projects = ["test"]
+projects = ["test", "docs"]
 
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"

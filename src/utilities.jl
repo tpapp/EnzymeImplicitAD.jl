@@ -2,7 +2,7 @@
 ##### utilities
 #####
 
-public AD_CHUNKS
+public AD_CHUNKS, merge_disjoint
 
 ####
 #### Primitives for calculating Jacobians and Jacobian-vector products using Enzyme.
