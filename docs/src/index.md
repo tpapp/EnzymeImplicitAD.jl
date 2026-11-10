@@ -8,7 +8,7 @@ EnzymeImplicitAD
 
 An example implementation of a univariate cube root (which, of course, Julia already knows how to do with `cbrt`, this is just an example):
 
-```@example trivial
+```@example uni_cube_root
 import EnzymeImplicitAD as EI
 
 "Solving ``x - y^3 = 0`` for single-element vectors."
@@ -20,7 +20,7 @@ EI.get_initial_guesses(P::UniCubeRoot, x) = [x]
 function EI.implicit_solve_with_initial_guesses!(y, P::UniCubeRoot, x; initial_guesses)
     _x = only(x)
     _y = first(initial_guesses)[1]
-    ϵ = max(eps(_x), eps(typeof(_x))) # tolerance, up to the solution method
+    ϵ = √max(eps(_x), eps(typeof(_x))) # tolerance, up to the solution method
     for _ in 1:precision(_x)
         if abs(_x - _y^3) ≤ ϵ
             y[1] = _y
@@ -36,7 +36,7 @@ EI.sanity_checks(UniCubeRoot())
 
 Note how we implement the method which uses *initial guesses*, which makes [`wrappers`](@ref) easy to use. However, someone *using* this implementation would use
 
-```@example trivial
+```@example uni_cube_root
 P = UniCubeRoot()
 (; n_y) = EI.get_dimensions(P)
 y = zeros(n_y)

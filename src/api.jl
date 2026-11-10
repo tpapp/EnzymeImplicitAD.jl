@@ -155,6 +155,10 @@ Caller can assume that the dimensions are correct.
 """
 get_initial_guesses(problem, x) = Vector{typeof(x)}()
 
+function get_initial_guesses(problem::WrappedImplicitProblem, x)
+    get_initial_guesses(problem.inner_problem, x)
+end
+
 """
 $(_SIG("success::Bool"))
 
