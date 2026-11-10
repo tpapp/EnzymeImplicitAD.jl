@@ -1,0 +1,24 @@
+# see documentation at https://juliadocs.github.io/Documenter.jl/stable/
+
+using Documenter, EnzymeImplicitAD
+
+makedocs(
+    modules = [EnzymeImplicitAD],
+    format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"),
+    authors = "Tamás K. Papp",
+    sitename = "EnzymeImplicitAD.jl",
+    pages = Any["index.md",
+                "api.md",
+                "benchmarks_sanity_checks.md",
+                "wrappers.md",
+                "ad_hooks.md"],
+    clean = true,
+    checkdocs = :public,
+)
+
+# Some setup is needed for documentation deployment, see “Hosting Documentation” and
+# deploydocs() in the Documenter manual for more information.
+deploydocs(
+    repo = "github.com/tpapp/EnzymeImplicitAD.jl.git",
+    push_preview = true
+)

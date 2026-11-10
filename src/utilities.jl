@@ -105,7 +105,7 @@ function _inplace_∂g∂x_v!(Jv, v, implicit_problem, x, y, buffer_r)
 end
 
 """
-`$(SIGNATURES)` → `nothing`
+$(_SIG("nothing"))
 
 Calculate `v ⋅ ∂g/∂x` and put the result in the first argument, using reverse mode in Enzyme.
 
@@ -146,7 +146,7 @@ function Base.show(io::IO, om::OnlineMean)
 end
 
 """
-`$(SIGNATURES)` → `accumulator`
+$(_SIG("accumulator"))
 
 Return an accumulator that supportes [`update!`](@ref) and [`get_mean`](@ref).
 The sum is accumulated in a value of type `T`.
@@ -166,7 +166,7 @@ get_mean(om::OnlineMean) = om.sum / om.count
 ####
 
 """
-`$(SIGNATURES)` → `nothing`
+$(_SIG("nothing"))
 
 Merge two `NamedTuple`s, throw an error if they have names in common.
 """
@@ -197,7 +197,7 @@ end
 
 function _is_recursively_immutable(x::T) where T
     if isstructtype(T)
-        ismutabletype(T) && _is_recursively_immutable_struct(x)
+        !ismutabletype(T) && _is_recursively_immutable_struct(x)
     else
         false
     end

@@ -104,20 +104,22 @@ function Base.show(io::IO, benchmarks::Benchmarks)
 end
 
 """
-`$(SIGNATURES)` → `benchmarks::Benchmarks`
+$(MethodSignatures(returns = "benchmarks::Benchmarks", defaults = true))
 
 Benchmark and stress test `implicit_problem`.
 
-# Keyword arguments and defaults
+# Keyword arguments
 
-FIXME
+- `counts`: test the problem with this many inputs
+
+- `max_solver_error`, `max_partial_errors`: stop after this many errors have been logged (whichever is first)
+
+- `rng`: random number generator to use
 """
 function benchmark_and_stresstest(implicit_problem;
                                   count = 1000,
                                   max_solver_errors = 20,
                                   max_partial_errors = 20,
-                                  worst_solver = max(20, div(count, 10, RoundUp)),
-                                  worst_∂y∂x = max(20, div(count, 10, RoundUp)),
                                   rng = Random.default_rng())
     implicit_solve_errors = Vector{ErrorAt}()
     calculate_∂y∂x_errors = Vector{ErrorAt}()

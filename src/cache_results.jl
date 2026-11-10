@@ -32,7 +32,7 @@ end
 ####
 
 """
-`$(SIGNATURES)` → `key => value`, or `nothing`
+$(SIGNATURES)
 
 Find the “nearest” key in `dict` according to `strategy`. Will return a `key => value`
 pair or `nothing`.
@@ -107,7 +107,7 @@ function get_initial_guesses(y, problem::CacheResults, x)
 end
 
 """
-`$(SIGNATURES)` → `implicit_problem`
+$(_SIG("implicit_problem"))
 
 Wrap an implicit problem so that `y` and `∂y∂x` are cached.
 
@@ -126,7 +126,7 @@ function cache_results(inner_problem; min_size::Int = 10, max_size::Int = 2 * mi
 end
 
 """
-`$(SIGNATURES)` → `nothing`
+$(_SIG("nothing"))
 
 Cull dictionary to `min_size`, keeping the last `timestamp`s.
 

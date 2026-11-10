@@ -10,7 +10,7 @@ end
 
 @testset "failure" begin
     f = MayFail()
-    c = E.API_sanity_checks(f)
+    c = E.sanity_checks(f)
     x = [-1.0]
     y = [NaN]
     dx = copy(x)

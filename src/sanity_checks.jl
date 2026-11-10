@@ -2,7 +2,7 @@
 ##### utilities for testing API conformance
 #####
 
-public API_sanity_checks
+public sanity_checks, SanityChecks
 
 using LinearAlgebra: norm
 
@@ -11,10 +11,13 @@ using LinearAlgebra: norm
 ####
 
 """
-Implementation for `API_sanity_checks`, not part of the API.
+Results from [`sanity_checks`](@ref).
 
 Each field is either `missing` (test not performed), `nothing` (test passed), or an
-error-backtrace pair.
+error-backtrace pair. In addition, the property `all_ok::Bool` is supported, which is
+`true` iff all checks passed.
+
+$(FIELDS)
 """
 @kwdef struct SanityChecks      # deliberately untyped fields
     check_dimensions
@@ -31,7 +34,7 @@ error-backtrace pair.
 end
 
 """
-`$(SIGNATURES)` → `checks::SanityChecks`
+$(_SIG("checks::SanityChecks"))
 
 Check that the interface implemented to `implicit_problem` conforms to the expected API.
 See [`SanityChecks`](@ref), which prints as a nice summary.
@@ -44,7 +47,7 @@ used for debugging but are not part of the API.
 
 - `residual_l2norm`: the Euclidean norm used to check the residual
 """
-function API_sanity_checks(implicit_problem; residual_l2norm = √eps())
+function sanity_checks(implicit_problem; residual_l2norm = √eps())
     # initialize sanity checks
     check_dimensions = missing
     check_eltype = missing

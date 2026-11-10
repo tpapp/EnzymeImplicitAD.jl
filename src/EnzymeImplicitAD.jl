@@ -1,15 +1,18 @@
 """
-Exploring implicit differentiation in Enzyme.
+$(README)
 """
 module EnzymeImplicitAD
 
 using ArgCheck: @argcheck
-using DocStringExtensions: FUNCTIONNAME, SIGNATURES, FIELDS, TYPEDEF
+using DocStringExtensions: FUNCTIONNAME, SIGNATURES, FIELDS, TYPEDEF, README, MethodSignatures
 import Enzyme.EnzymeRules: augmented_primal, forward, reverse
 using Enzyme.EnzymeRules: Const, Duplicated, BatchDuplicated, FwdConfig, RevConfigWidth, overwritten,
     AugmentedReturn, needs_primal
 using Enzyme: Forward, Reverse, autodiff, make_zero!
 using LinearAlgebra: ldiv!, lu!, rdiv!
+
+# shorthand for documenting returns
+_SIG(returns) = MethodSignatures(returns = returns)
 
 include("utilities.jl")
 include("api.jl")
