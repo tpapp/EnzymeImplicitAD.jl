@@ -14,7 +14,7 @@ import EnzymeImplicitAD as EI
 "Solving ``x - y^3 = 0`` for single-element vectors."
 struct UniCubeRoot end
 
-EI.get_dimensions(::UniCubeRoot) = (; n_x = 1, n_y = 1, n_r = 1)
+EI.get_dimensions(::UniCubeRoot) = (; n_x = 1, n_y = 1)
 EI.implicit_residuals!(r, ::UniCubeRoot, x, y) = (r[1] = only(x) - only(y)^3; nothing)
 EI.get_initial_guesses(P::UniCubeRoot, x) = [x]
 function EI.implicit_solve_with_initial_guesses!(y, P::UniCubeRoot, x; initial_guesses)

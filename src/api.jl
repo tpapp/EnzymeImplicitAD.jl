@@ -58,7 +58,7 @@ wrapper_statistics(::WrappedImplicitProblem) = (;)
 ####
 
 """
-$(_SIG("(; n_x, n_y, n_r)"))
+$(_SIG("(; n_x, n_y)"))
 
 Return the dimensions of the problem.
 """
@@ -197,8 +197,8 @@ Return an object which contains the following buffers, which are accessible as
 properties. Each is a vector, with lengths consistent with the corresponding dimension
 in [`get_dimensions`](@ref).
 
-- `buffer_r` is a vector of length `n_r`
-- `buffer_dr` is a tuple of $(AD_CHUNKS) vectors, each of length `n_r`
+- `buffer_r` is a vector of length `n_y`
+- `buffer_dr` is a tuple of $(AD_CHUNKS) vectors, each of length `n_y`
 - `buffer_x` is a vector of length `n_x`
 - `buffer_y` is a vector of length `n_y`
 - `buffer_dy` is a tuple of $(AD_CHUNKS) vectors, each of length `n_y`
@@ -212,10 +212,10 @@ buffers. However, the buffers should not be used concurrently, see [`independent
 """
 function get_buffers(implicit_problem)
     T = get_preferred_eltype(implicit_problem)
-    (; n_r, n_y, n_x) = get_dimensions(implicit_problem)
+    (; n_x, n_y) = get_dimensions(implicit_problem)
     _v(n) = Vector{T}(undef, n)
     _vc(n) = ntuple(_ -> _v(n), Val(AD_CHUNKS))
-    (; x = _v(n_x), y = _v(n_y), r = _v(n_r), dy = _vc(n_y), dr = _vc(n_r))
+    (; x = _v(n_x), y = _v(n_y), r = _v(n_y), dy = _vc(n_y), dr = _vc(n_y))
 end
 
 function get_buffers(implicit_problem::WrappedImplicitProblem)

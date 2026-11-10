@@ -60,14 +60,13 @@ function sanity_checks(implicit_problem; residual_l2norm = √eps())
     check_get_buffers = missing
     check_∂y∂x = missing
     check_statistics = missing
-    local T, n_x, n_y, n_r, x, initial_guesses, y, success::Bool
+    local T, n_x, n_y, x, initial_guesses, y, success::Bool
 
     # dimensions
     try
-        (; n_x, n_y, n_r) = get_dimensions(implicit_problem)
+        (; n_x, n_y) = get_dimensions(implicit_problem)
         @argcheck n_x isa Int && n_x > 0
         @argcheck n_y isa Int && n_y > 0
-        @argcheck n_r isa Int && n_r > 0
         check_dimensions = nothing
     catch e
         check_dimensions = (e, catch_backtrace())
@@ -165,10 +164,10 @@ function sanity_checks(implicit_problem; residual_l2norm = √eps())
         end
         _check_buffer(buffers.x, n_x)
         _check_buffer(buffers.y, n_y)
-        _check_buffer(buffers.r, n_r)
+        _check_buffer(buffers.r, n_y)
         for i in 1:AD_CHUNKS
             _check_buffer(buffers.dy[i], n_y)
-            _check_buffer(buffers.dr[i], n_r)
+            _check_buffer(buffers.dr[i], n_y)
         end
         check_get_buffers = nothing
     catch e

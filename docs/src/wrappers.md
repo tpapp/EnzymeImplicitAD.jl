@@ -10,7 +10,7 @@ import EnzymeImplicitAD as EI
 "Solving x + y = 0, failure for x < 0."
 struct DontLikeNegative end
 
-EI.get_dimensions(::DontLikeNegative) = (; n_x = 1, n_y = 1, n_r = 1)
+EI.get_dimensions(::DontLikeNegative) = (; n_x = 1, n_y = 1)
 
 EI.implicit_residuals!(r, ::DontLikeNegative, x, y) = (r[1] = only(x) + only(y); nothing)
 
