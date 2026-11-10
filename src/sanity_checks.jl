@@ -68,10 +68,6 @@ function sanity_checks(implicit_problem; residual_l2norm = √eps())
         @argcheck n_x isa Int && n_x > 0
         @argcheck n_y isa Int && n_y > 0
         @argcheck n_r isa Int && n_r > 0
-        solution_concept = get_solution_concept(implicit_problem) # test that it is defined
-        if solution_concept ≡ ZeroResiduals()
-            @argcheck n_y == n_r
-        end
         check_dimensions = nothing
     catch e
         check_dimensions = (e, catch_backtrace())

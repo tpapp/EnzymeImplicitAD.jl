@@ -5,8 +5,6 @@
 public
     # accessors
     get_dimensions,
-    ZeroResiduals,
-    get_solution_concept,
     get_preferred_eltype,
     get_statistics,
     get_buffers,
@@ -36,13 +34,11 @@ Forwards
 2. [`get_statistics`](@ref) (note: subtypes should implement
 [`wrapper_statistics`](@ref) to add statistics)
 
-3. [`get_solution_concept`](@ref)
+3. [`innermost_parent`](@ref)
 
-4. [`innermost_parent`](@ref)
+4. [`implicit_residuals`](@ref)
 
-5. [`implicit_residuals`](@ref)
-
-6. [`get_buffers`](@ref)
+5. [`get_buffers`](@ref)
 
 Only for organizing code inside this package, not part of the API.
 """
@@ -68,24 +64,6 @@ Return the dimensions of the problem.
 """
 function get_dimensions(implicit_problem::WrappedImplicitProblem)
     get_dimensions(implicit_problem.inner_problem)
-end
-
-"""
-Solution concept: for a given `x`, `y` is the solution which makes residuals `r` zero in
-`implicit_residuals!(r, problem, x, y)`.
-"""
-struct ZeroResiduals end
-
-"""
-$(_SIG("solution_concept"))
-
-Return the solution concept. The default is [`ZeroResiduals`](@ref), which is currently
-the only supported solution concept.
-"""
-get_solution_concept(implicit_problem) = ZeroResiduals()
-
-function get_solution_concept(implicit_problem::WrappedImplicitProblem)
-    get_solution_concept(implicit_problem.inner_problem)
 end
 
 """
@@ -303,7 +281,6 @@ Calculate the pushforward `dy = ∂y∂x ⋅ dx` into `dy`.
 A fallback is provided using Enzyme, but an `implicit_problem` can define its own method.
 """
 function calculate_pushforward!(dy, implicit_problem, x, y, ∂y∂x::∂Y∂X, dx)
-    @argcheck get_solution_concept(implicit_problem) ≡ ZeroResiduals()
     buffers = get_buffers(implicit_problem)
     _inplace_∂g∂x_v!(dy, dx, implicit_problem, x, y, buffers.r)
     ldiv!(∂y∂x.∂g∂y_factor, dy)
@@ -319,7 +296,6 @@ Accumulate the pullback `dy ⋅ ∂y∂x` into `dx`.
 A default is implemented using Enzyme, but an `implicit_problem` can define its own method.
 """
 function accumulate_pullback!(dx, implicit_problem, x, y, ∂y∂x::∂Y∂X, dy)
-    @argcheck get_solution_concept(implicit_problem) ≡ ZeroResiduals()
     (; ∂g∂y_factor) = ∂y∂x
     # math:
     #     dy ⋅ ∂y/∂x = - (dy' / ∂g/∂y) ⋅ ∂g/∂x

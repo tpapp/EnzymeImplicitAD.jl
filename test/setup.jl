@@ -136,8 +136,6 @@ E.get_dimensions(s::SometimesFails) = E.get_dimensions(s.inner_problem)
 
 E.get_preferred_eltype(s::SometimesFails) = E.get_preferred_eltype(s.inner_problem)
 
-E.get_solution_concept(::SometimesFails) = E.ZeroResiduals()
-
 function E.implicit_solve_with_initial_guesses!(y, s::SometimesFails, x; initial_guesses)
     rand() < s.failure_probability && throw(DomainError(copy(x), "I don't like this particular x"))
     E.implicit_solve_with_initial_guesses!(y, s.inner_problem, x; initial_guesses)

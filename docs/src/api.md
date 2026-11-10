@@ -11,7 +11,6 @@ The purpose of this package is to isolate an implicit problem in part of the cod
 | [`EnzymeImplicitAD.independent_copy`](@ref)                     | yes                | default only works for recursively immutable types |
 | [`EnzymeImplicitAD.get_initial_guesses`](@ref)                  | yes, empty         | user should provide initial guesses if available   |
 | [`EnzymeImplicitAD.get_buffers`](@ref)                          | yes, but allocates | see [`EnzymeImplicitAD.preallocate_buffers`](@ref) |
-| [`EnzymeImplicitAD.get_solution_concept`](@ref)                 | yes                | ignore, package only supports default for now      |
 | [`EnzymeImplicitAD.innermost_parent`](@ref)                     | yes                | useful for [`wrappers`](@ref), default: `identity` |
 | [`EnzymeImplicitAD.calculate_∂y∂x`](@ref)                       | yes, via Enzyme    | useful [`ad_hooks`](@ref)                          |
 | [`EnzymeImplicitAD.calculate_pushforward!`](@ref)               | yes                | useful [`ad_hooks`](@ref)                          |
@@ -73,13 +72,4 @@ While problems are being solved, they may collect statistics about their solutio
 
 ```@docs
 EnzymeImplicitAD.get_statistics
-```
-
-## Solution concepts (ignore for now)
-
-Currently, the interface supports only the implicit function formulation. The following API is for future extensions, allowing least squares or fixed point formulations.
-
-```@docs
-EnzymeImplicitAD.get_solution_concept
-EnzymeImplicitAD.ZeroResiduals
 ```
