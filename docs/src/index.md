@@ -50,7 +50,7 @@ which calculates the initial guesses (where applicable), and passes them on to t
 
 Refer to the documentation of [the implicit problem api](@ref api) for *defining* problems. Note, however, that in most case only a few key methods are needed for defining a problem.
 
-[Benchmarking and sanity checks](@ref) help the usef debug and optimize problem implementations.
+[Benchmarking and sanity checks](@ref) help the user debug and optimize problem implementations.
 
 [Wrappers](@ref wrappers) add useful functionality to a user-defined problem, including caching solutions and residuals, collecting statistics, preallocating buffers.
 
