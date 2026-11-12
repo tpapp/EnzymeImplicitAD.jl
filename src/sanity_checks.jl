@@ -37,7 +37,7 @@ end
 $(_SIG("checks::SanityChecks"))
 
 Check that the interface implemented to `implicit_problem` conforms to the expected API.
-See [`SanityChecks`](@ref), which prints as a nice summary.
+See [`SanityChecks`](@ref), which prints as a nice summary, or the relevant error.
 
 Checks are not necessarily comprehensive, and may change without major version changes.
 The user can access the property `checks.all_ok::Bool`, the rest of the fields can be
