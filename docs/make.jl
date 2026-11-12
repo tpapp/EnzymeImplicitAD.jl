@@ -14,6 +14,7 @@ makedocs(
                 "ad_hooks.md"],
     clean = true,
     checkdocs = :public,
+    assets = ["assets/custom.css"],
 )
 
 # Some setup is needed for documentation deployment, see “Hosting Documentation” and
