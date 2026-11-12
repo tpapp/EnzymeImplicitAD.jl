@@ -29,7 +29,7 @@ function Base.show(io::IO, problem::LinearProblem)
 end
 
 """
-Make a random (square, `n_r = n_y`) matrix problem with the given dimensions.
+Make a random matrix problem with the given dimensions.
 """
 function LinearProblem(; n_y::Int, n_x::Int = n_y)
     @assert n_x > 0
@@ -39,7 +39,7 @@ end
 
 function E.get_dimensions(P::LinearProblem)
     n_y, n_x = size(P.A)
-    (; n_x, n_y, n_r = n_y)
+    (; n_x, n_y)
 end
 
 function E.implicit_solve_with_initial_guesses!(y::AbstractVector{T}, P::LinearProblem{true},
@@ -70,7 +70,7 @@ analytical_pullback(P::LinearProblem, dy) = (P.luB \ P.A)' * (.-dy)
 "A trivial test problem that fails when x < 0."
 struct MayFail end
 
-E.get_dimensions(::MayFail) = (; n_x = 1, n_y = 1, n_r = 1)
+E.get_dimensions(::MayFail) = (; n_x = 1, n_y = 1)
 
 function E.implicit_solve_with_initial_guesses!(y, ::MayFail, x; initial_guesses)
     y[1] = x[1]
@@ -92,9 +92,9 @@ and `analytical_pushforward`.
 function test_Enzyme_AD(implicit_problem, analytical_problem;
                         testset_name = "AD tests for $(repr(implicit_problem))",
                         atol = 1e-6)
-    (; n_x, n_y, n_r) = E.get_dimensions(implicit_problem)
+    (; n_x, n_y) = E.get_dimensions(implicit_problem)
     @testset "$(testset_name)" begin
-        r = zeros(n_r)
+        r = zeros(n_y)
         @testset "forward" begin
             x = randn(n_x)
             y = fill(NaN, n_y)
@@ -135,8 +135,6 @@ end
 E.get_dimensions(s::SometimesFails) = E.get_dimensions(s.inner_problem)
 
 E.get_preferred_eltype(s::SometimesFails) = E.get_preferred_eltype(s.inner_problem)
-
-E.get_solution_concept(::SometimesFails) = E.ZeroResiduals()
 
 function E.implicit_solve_with_initial_guesses!(y, s::SometimesFails, x; initial_guesses)
     rand() < s.failure_probability && throw(DomainError(copy(x), "I don't like this particular x"))

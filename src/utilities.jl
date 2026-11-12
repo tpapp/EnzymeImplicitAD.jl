@@ -75,8 +75,8 @@ See [`get_buffers`](@ref) about `buffers`.
 """
 function _calculate_∂g∂y(implicit_problem, x, y, buffers)
     @assert !Base.has_offset_axes(x, y)
-    (; n_y, n_r) = get_dimensions(implicit_problem)
-    J = similar(y, n_r, n_y)
+    (; n_y) = get_dimensions(implicit_problem)
+    J = similar(y, n_y, n_y)
     if n_y ≥ 8
         ∂g∂y = _calculate_∂g∂y_chunked!(J, implicit_problem, x, y, Val(AD_CHUNKS), buffers)
     else
@@ -95,7 +95,7 @@ See [`get_buffers`](@ref) about `buffer_r`.
 ### Expected dimensions (not checked):
 
 - `length(v) == n_x`
-- `length(Jv) == n_r`
+- `length(Jv) == n_y`
 """
 function _inplace_∂g∂x_v!(Jv, v, implicit_problem, x, y, buffer_r)
     make_zero!(Jv)              # FIXME: do I need this?
@@ -115,7 +115,7 @@ See [`get_buffers`](@ref) about `buffer_r`.
 
 ### Expected dimensions (not checked):
 
-- `length(v) == n_r`
+- `length(v) == n_y`
 - `length(Jv) == n_x`
 """
 function _inplace_v_∂g∂x!(vJ, v, implicit_problem, x, y, buffer_r)
