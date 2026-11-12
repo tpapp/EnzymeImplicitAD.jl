@@ -95,18 +95,20 @@ function get_statistics(implicit_problem::WrappedImplicitProblem)
 end
 
 """
-$(SIGNATURES)
+$(_SIG("implicit_problem′"))
 
 Make a copy of problem that functionally equivalent but independent, ie safe for using
 in another thread. Specifically, this should ensure that all the functions in the API of
 this package are safe to use concurrently on independent copies.
 
+Implementations should preserve types.
+
 The generic method makes an effort to just return recursively immutable values as is,
 but it may just be too narrow. If it fails, define a method for the type.
 """
-function independent_copy(x::T) where T
-    if _is_recursively_immutable(x)
-        x
+function independent_copy(implicit_problem::T) where T
+    if _is_recursively_immutable(implicit_problem)
+        implicit_problem
     else
         error("Define a method for `independent_copy` for types $T.")
     end
@@ -124,7 +126,7 @@ innermost_parent(x::WrappedImplicitProblem) = innermost_parent(x.inner_problem)
 ####
 
 """
-$(_SIG("AbstractVector{<:AbstractVector{eltype(x)}}"))
+$(_SIG("Vector{typeof(x)}()::AbstractVector{<:AbstractVector{eltype(x)}}"))
 
 Provide initial guess(es) for the problem given `x`, as a vector of vectors. May be
 empty. The most useful initial guesses should come first.
@@ -138,7 +140,7 @@ function get_initial_guesses(problem::WrappedImplicitProblem, x)
 end
 
 """
-$(_SIG("success::Bool"))
+`$(FUNCTIONNAME) -> success::Bool`
 
 Solve for `y` with `implicit_problem` at `x`. `initial_guesses` is a vector of
 initial guesses for `y` (may be empty).
@@ -161,9 +163,10 @@ encouraged, but not required, to fill the latter with `NaN`s.
 
 See [`implicit_residuals!`](@ref), which implements ``g`` above.
 
-!!! note
-    Don't specialize this method, rather [`get_initial_guesses`](@ref),
-    [`implicit_solve_with_initial_guesses!`](@ref).
+The **user should implement** [`get_initial_guesses`](@ref) and
+[`implicit_solve_with_initial_guesses!`](@ref) which are used by this method.
+
+**Don't implement a problem-specific method for this function.**
 """
 function implicit_solve!(y, implicit_problem, x)
     initial_guesses = get_initial_guesses(implicit_problem, x)

@@ -44,11 +44,11 @@ I wrote this package because:
 
 ### Are you following SemVer?
 
-Technically yes, since the package will be kept at `v0.x`, so everything is assumed to be breaking 😉
+Technically yes, since the package will be kept at `v0.x` for a while, so everything is assumed to be breaking 😉
 
 ### Can I use this in production code?
 
-The code is intended to be usable, with unit tests, and if you commit the manifest it will be reproducible. Note that this is still work in progress though, and be ready for breaking changes.
+The code is intended to be usable, with unit tests, and if you commit the manifest it will be reproducible. Note that this is still work in progress though, and be ready for breaking changes. That said, I am using it in my own work.
 
 ### Will this package be registered/released eventually?
 

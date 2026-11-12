@@ -6,7 +6,7 @@ EnzymeImplicitAD
 
 ## Example
 
-An example implementation of a univariate cube root (which, of course, Julia already knows how to do with `cbrt`, this is just an example):
+An example implementation of a univariate cube root (which, of course, Julia already knows how to do with `cbrt`).
 
 ```@example uni_cube_root
 import EnzymeImplicitAD as EI
@@ -15,8 +15,11 @@ import EnzymeImplicitAD as EI
 struct UniCubeRoot end
 
 EI.get_dimensions(::UniCubeRoot) = (; n_x = 1, n_y = 1)
+
 EI.implicit_residuals!(r, ::UniCubeRoot, x, y) = (r[1] = only(x) - only(y)^3; nothing)
+
 EI.get_initial_guesses(P::UniCubeRoot, x) = [x]
+
 function EI.implicit_solve_with_initial_guesses!(y, P::UniCubeRoot, x; initial_guesses)
     _x = only(x)
     _y = first(initial_guesses)[1]
@@ -31,10 +34,10 @@ function EI.implicit_solve_with_initial_guesses!(y, P::UniCubeRoot, x; initial_g
     false # failed to find root within given number of steps, will not happen here
 end
 
-EI.sanity_checks(UniCubeRoot())
+EI.sanity_checks(UniCubeRoot())    # do some basic API checks
 ```
 
-Note how we implement the method which uses *initial guesses*, which makes [`wrappers`](@ref) easy to use. However, someone *using* this implementation would use
+Note how we implement the method which uses *initial guesses*, which makes [`wrappers`](@ref) easy to use. However, someone *using* this implementation to solve problems of this kind would use
 
 ```@example uni_cube_root
 P = UniCubeRoot()

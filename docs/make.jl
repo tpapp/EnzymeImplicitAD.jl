@@ -4,7 +4,8 @@ using Documenter, EnzymeImplicitAD
 
 makedocs(
     modules = [EnzymeImplicitAD],
-    format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"),
+    format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true",
+                             assets = ["assets/html/custom.css"]),
     authors = "Tamás K. Papp",
     sitename = "EnzymeImplicitAD.jl",
     pages = Any["index.md",
