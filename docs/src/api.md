@@ -16,13 +16,16 @@ The purpose of this package is to isolate an implicit problem in part of the cod
 | [`EnzymeImplicitAD.calculate_pushforward!`](@ref)               | yes                | useful [`ad_hooks`](@ref)                          |
 | [`EnzymeImplicitAD.accumulate_pullback!`](@ref)                 | yes                | useful [`ad_hooks`](@ref)                          |
 
-The key entry point is
+The key entry points are
 
 ```@docs
 EnzymeImplicitAD.implicit_solve!
+EnzymeImplicitAD.implicit_solve
 ```
 
-which can be used in a problem-agnostic manner.
+which can be used in a problem-agnostic manner. Importantly, a problem
+should *not* implement methods for these functions, they are just
+wrappers.
 
 Problems can be queried for the preferred element type of buffers and their dimensions:
 

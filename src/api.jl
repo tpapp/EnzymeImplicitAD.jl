@@ -14,6 +14,7 @@ public
     get_initial_guesses,
     implicit_solve_with_initial_guesses!,
     implicit_solve!,
+    implicit_solve,
     implicit_residuals!,
     # helpers
     calculate_∂y∂x,
@@ -171,6 +172,23 @@ The **user should implement** [`get_initial_guesses`](@ref) and
 function implicit_solve!(y, implicit_problem, x)
     initial_guesses = get_initial_guesses(implicit_problem, x)
     implicit_solve_with_initial_guesses!(y, implicit_problem, x; initial_guesses)
+end
+
+"""
+$(_SIG("y or nothing"))
+
+Convenience wrapper for [`implicit_solve!`](@ref) that allocates a vector for the
+solution. If the solver is not successful, return `nothing`.
+
+**Don't implement a problem-specific method for this function.**
+"""
+function implicit_solve(implicit_problem, x)
+    y = zeros(get_preferred_eltype(implicit_problem), get_dimensions(implicit_problem).n_y)
+    if implicit_solve!(y, implicit_problem, x)
+        y
+    else
+        nothing
+    end
 end
 
 ####

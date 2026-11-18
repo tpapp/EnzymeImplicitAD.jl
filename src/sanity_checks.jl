@@ -134,6 +134,8 @@ function sanity_checks(implicit_problem; residual_l2norm = √eps())
     try
         @argcheck(only(methods(implicit_solve!, Tuple{Any,typeof(implicit_problem),Any})) ==
             which(implicit_solve!, Tuple{Any,Any,Any}))
+        @argcheck(only(methods(implicit_solve, Tuple{typeof(implicit_problem),Any})) ==
+            which(implicit_solve, Tuple{Any,Any}))
         check_implicit_solve = nothing
     catch e
         check_implicit_solve = (e, catch_backtrace())

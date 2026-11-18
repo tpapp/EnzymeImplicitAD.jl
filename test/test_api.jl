@@ -17,6 +17,7 @@ end
     dy = copy(y)
     # failure
     @test !(@inferred(E.implicit_solve!(y, f, x)))
+    @test @inferred(Vector{Float64}, E.implicit_solve(f, x)) ≡ nothing
     @inferred autodiff(ForwardWithPrimal, E.implicit_solve!, Duplicated(y, dy), Const(f),
                        Duplicated(x, dx))
     @test all(isnan, dy)
@@ -27,6 +28,7 @@ end
     # success
     x[1] = 1.0
     @test @inferred(E.implicit_solve!(y, f, x))
+    @test @inferred(Nothing, E.implicit_solve(f, x)) ≢ nothing
     @test @inferred(autodiff(ForwardWithPrimal, E.implicit_solve!,
                              Duplicated(y, dy), Const(f), Duplicated(x, dx))) == (true,)
     @test @inferred(autodiff(ReverseWithPrimal, E.implicit_solve!, Duplicated(y, dy),
