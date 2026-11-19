@@ -41,32 +41,34 @@ end
 end
 
 @testset "cache statistics" begin
-        P0 = LinearProblem(; n_x, n_y)
-        P = E.cache_results(P0; min_size = K, max_size = 2 * K)
-        x = randn(n_x)
-        y = fill(NaN, n_y)
-        M = 10
+    n_x = 4
+    n_y = 5
+    P0 = LinearProblem(; n_x, n_y)
+    P = E.cache_results(P0)
+    x = randn(n_x)
+    y = fill(NaN, n_y)
+    M = 10
 
-        # just the value
-        for _ in 1:M
-            @inferred E.implicit_solve!(y, P, x)
-        end
-        s = E.get_statistics(P)
-        @test s.average_y_hit == (M - 1) / M # all but one
-        @test isnan(s.average_∂y∂x_hit)
+    # just the value
+    for _ in 1:M
+        @inferred E.implicit_solve!(y, P, x)
+    end
+    s = E.get_statistics(P)
+    @test s.average_y_hit == (M - 1) / M # all but one
+    @test isnan(s.average_∂y∂x_hit)
 
-        # just the derivative
-        for _ in 1:M
-            @inferred E.calculate_∂y∂x(P, x, y)
-        end
-        s = E.get_statistics(P)
-        @test s.average_y_hit == (M - 1) / M    # same as before
-        @test s.average_∂y∂x_hit == (M - 1) / M # all but one
-
-        # another value
-        x .+= 1
+    # just the derivative
+    for _ in 1:M
         @inferred E.calculate_∂y∂x(P, x, y)
-        s = E.get_statistics(P)
-        @test s.average_y_hit == (M - 1) / M          # same as before
-        @test s.average_∂y∂x_hit == (M - 1) / (M + 1) # one extra miss
+    end
+    s = E.get_statistics(P)
+    @test s.average_y_hit == (M - 1) / M    # same as before
+    @test s.average_∂y∂x_hit == (M - 1) / M # all but one
+
+    # another value
+    x .+= 1
+    @inferred E.calculate_∂y∂x(P, x, y)
+    s = E.get_statistics(P)
+    @test s.average_y_hit == (M - 1) / M          # same as before
+    @test s.average_∂y∂x_hit == (M - 1) / (M + 1) # one extra miss
 end
