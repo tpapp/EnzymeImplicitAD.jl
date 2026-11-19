@@ -17,8 +17,30 @@
 
         test_Enzyme_AD(P, P0)
     end
+end
 
-    @testset "cache statistics" begin
+@testset "cached initial guesses" begin
+    n_x, n_y = 4, 5
+    P0 = LinearProblem(; n_x, n_y)
+    x = randn(n_x)
+    P = E.cache_results(P0; min_size = 5, max_size = 10)
+    y = E.implicit_solve(P, x)
+    x2 = randn(n_x)
+
+    # no partial calculation yet, we just get the other value
+    y2 = only(E.get_initial_guesses(P, x2))
+    @test y2 == y && y2 ≢ y     # equal, but not shared
+
+    # calculating a partial, we get an exact solution
+    E.calculate_∂y∂x(P, x, y)
+    g2 = E.get_initial_guesses(P, x2)
+    @test g2[2] == y && g2[2] ≢ y # as before
+    r = zero(y)
+    E.implicit_residuals!(r, P, x2, g2[1]) # better guess: exact
+    @test sum(abs2, r) ≤ 1e-15
+end
+
+@testset "cache statistics" begin
         P0 = LinearProblem(; n_x, n_y)
         P = E.cache_results(P0; min_size = K, max_size = 2 * K)
         x = randn(n_x)
@@ -47,5 +69,4 @@
         s = E.get_statistics(P)
         @test s.average_y_hit == (M - 1) / M          # same as before
         @test s.average_∂y∂x_hit == (M - 1) / (M + 1) # one extra miss
-    end
 end

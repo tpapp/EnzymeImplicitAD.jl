@@ -50,7 +50,7 @@ find_nearest(x, dict, strategy::Nothing) = nothing
 function find_nearest(x, dict, metric::Distances.PreMetric)
     T = eltype(x)
     isempty(dict) && return nothing
-    x = argmin(y -> evaluate(metric, x, y), keys(dict))
+    x = argmin(y -> Distances.evaluate(metric, x, y), keys(dict))
     x => dict[x]
 end
 
@@ -96,12 +96,24 @@ function wrapper_statistics(problem::CacheResults)
     (; average_y_hit = get_mean(y_hits), average_∂y∂x_hit = get_mean(∂y∂x_hits))
 end
 
-function get_initial_guesses(y, problem::CacheResults, x)
+function get_initial_guesses(problem::CacheResults, x)
     (; inner_problem, dict, nearest_strategy) = problem
     initial_guesses = get_initial_guesses(inner_problem, x)
     nearest = find_nearest(x, dict, nearest_strategy)
     if nearest ≢ nothing
-        push!(initial_guesses, copy(nearest[2].y)) # don't share storage
+        x̃ = nearest[1]
+        ỹ = nearest[2].y
+        (; ∂y∂x) = nearest[2]
+        pushfirst!(initial_guesses, copy(ỹ)) # don't share storage
+        if ∂y∂x ≢ nothing
+            # y ≈ ỹ + ∂y∂x ⋅ (x - x̃)
+            dx = copy(x)
+            dx .-= x̃
+            dy = copy(ỹ)
+            calculate_pushforward!(dy, inner_problem, x̃, ỹ, ∂y∂x, dx)
+            dy .+= ỹ
+            pushfirst!(initial_guesses, dy)
+        end
     end
     initial_guesses
 end
