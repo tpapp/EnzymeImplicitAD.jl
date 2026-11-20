@@ -45,13 +45,18 @@ Supported strategies:
 
 - `::Distances.Metric` will use the relevant distance
 """
-find_nearest(x, dict, strategy::Nothing) = nothing
+find_nearest(x, dict::AbstractDict, strategy::Nothing) = nothing
 
-function find_nearest(x, dict, metric::Distances.PreMetric)
+function find_nearest(x, dict::AbstractDict{K}, metric::Distances.PreMetric) where K
     T = eltype(x)
     isempty(dict) && return nothing
-    x = argmin(y -> Distances.evaluate(metric, x, y), keys(dict))
-    x => dict[x]
+    y = get(dict, x, nothing)   # try exact lookup first
+    if y ≡ nothing
+        x̃, ỹ = argmin(((x̃, _),) -> Distances.evaluate(metric, x, x̃), pairs(dict))
+        x̃ => ỹ
+    else
+        getkey(dict, x, nothing)::K => y
+    end
 end
 
 ####
