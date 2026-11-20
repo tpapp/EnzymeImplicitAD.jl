@@ -74,21 +74,25 @@ end
     ∂y∂x_hits::O
     "strategy for find_nearest"
     nearest_strategy::N
+    "always calculate ∂y∂x for initial guesses"
+    always_extrapolate::Bool
 end
 
 function Base.show(io::IO, problem::CacheResults)
-    (; min_size, max_size, inner_problem, y_hits, ∂y∂x_hits) = problem
-    print(io, "caching [$(min_size),$(max_size)] evaluations of $(inner_problem)",
+    (; min_size, max_size, inner_problem, y_hits, ∂y∂x_hits, always_extrapolate) = problem
+    print(io, "caching [$(min_size),$(max_size)] evaluations of $(inner_problem), ",
+          always_extrapolate ? "always extrapolate" : "extrapolate if ∂y∂x is available",
           "\n    y hits: $(y_hits)",
           "\n    ∂y∂x hits: $(∂y∂x_hits)")
 end
 
 function independent_copy(problem::CacheResults)
     (; inner_problem, min_size, max_size, dict, y_hits, ∂y∂x_hits,
-     nearest_strategy) = problem
+     nearest_strategy, always_extrapolate) = problem
     CacheResults(; inner_problem = independent_copy(inner_problem), min_size, max_size,
-                         dict = copy(dict), y_hits = independent_copy(y_hits),
-                         ∂y∂x_hits = independent_copy(∂y∂x_hits), nearest_strategy)
+                 dict = copy(dict), y_hits = independent_copy(y_hits),
+                 ∂y∂x_hits = independent_copy(∂y∂x_hits), nearest_strategy,
+                 always_extrapolate)
 end
 
 function wrapper_statistics(problem::CacheResults)
@@ -97,7 +101,7 @@ function wrapper_statistics(problem::CacheResults)
 end
 
 function get_initial_guesses(problem::CacheResults, x)
-    (; inner_problem, dict, nearest_strategy) = problem
+    (; inner_problem, dict, nearest_strategy, always_extrapolate) = problem
     initial_guesses = get_initial_guesses(inner_problem, x)
     nearest = find_nearest(x, dict, nearest_strategy)
     if nearest ≢ nothing
@@ -105,6 +109,9 @@ function get_initial_guesses(problem::CacheResults, x)
         ỹ = nearest[2].y
         (; ∂y∂x) = nearest[2]
         pushfirst!(initial_guesses, copy(ỹ)) # don't share storage
+        if ∂y∂x ≡ nothing && always_extrapolate
+            ∂y∂x = nearest[2].∂y∂x = calculate_∂y∂x(inner_problem, x̃, ỹ)
+        end
         if ∂y∂x ≢ nothing
             # y ≈ ỹ + ∂y∂x ⋅ (x - x̃)
             dx = copy(x)
@@ -125,16 +132,21 @@ Wrap an implicit problem so that `y` and `∂y∂x` are cached.
 
 Specficially, at least `min_size` and at most `max_size` most recently used values are kept.
 
+For initial guesses, the nearest `x` value `x̃` is used. A linear extrapolation
+`ỹ+∂y∂x*(x̃-x)` is added when `∂y∂x` is available; when `always_extrapolate` the latter
+is calculated when necessary and a linear extrapolation is always added to the initial
+guesses.
+
 Supported statistics: those of the inner problem, `average_y_hit`, `average_∂y∂x_hit`.
 """
 function cache_results(inner_problem; min_size::Int = 10, max_size::Int = 2 * min_size,
-                       nearest_strategy = Distances.Euclidean())
+                       nearest_strategy = Distances.Euclidean(), always_extrapolate = false)
     @argcheck 0 < min_size < max_size
     Y = Vector{get_preferred_eltype(inner_problem)}
     CacheResults(; inner_problem, min_size, max_size,
                          dict = Dict{Y,CacheEntry{Y,get_∂y∂x_type(inner_problem)}}(),
                          y_hits = online_mean(UInt64), ∂y∂x_hits = online_mean(UInt64),
-                         nearest_strategy)
+                         nearest_strategy, always_extrapolate)
 end
 
 """
